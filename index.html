@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Control de Atenciones - Servicio Social</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-icon">SS</div>
+      <div><strong>Servicio Social</strong><small>Control de Atenciones</small></div>
+    </div>
+    <nav>
+      <button class="nav-btn active" data-view="dashboard">📊 Resumen</button>
+      <button class="nav-btn" data-view="new">➕ Nueva atención</button>
+      <button class="nav-btn" data-view="records">👥 Atenciones</button>
+      <button class="nav-btn" data-view="report">📑 Informe mensual</button>
+    </nav>
+    <div class="side-footer">
+      <button id="backupBtn" class="secondary full">💾 Exportar respaldo (Excel)</button>
+      <label class="secondary full file-label">↩️ Importar respaldo (Excel)
+        <input id="restoreInput" type="file" accept=".xlsx,.xls,.json">
+      </label>
+    </div>
+  </aside>
+
+  <div id="sidebarOverlay" class="sidebar-overlay"></div>
+
+  <main class="main">
+    <header class="topbar">
+      <button id="hamburgerBtn" class="hamburger no-print" aria-label="Abrir menú" type="button">☰</button>
+      <div class="topbar-title">
+        <h1 id="pageTitle">Resumen</h1>
+        <p id="today"></p>
+      </div>
+      <div class="topbar-actions">
+        <button class="secondary" id="actaBtn" type="button">📄 Acta de entrega</button>
+        <button class="primary" id="quickNew" type="button">＋ Nueva atención</button>
+      </div>
+    </header>
+
+    <section id="dashboard" class="view active">
+      <div class="filters">
+        <label>Mes
+          <input type="month" id="dashMonth">
+        </label>
+      </div>
+      <div class="cards" id="summaryCards"></div>
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Producción por servicio</h2>
+          <span id="dashCount"></span>
+        </div>
+        <div class="table-wrap">
+          <table id="serviceTable"></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="new" class="view">
+      <div class="panel form-panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="formTitle">Registrar atención</h2>
+            <p class="muted">Cada paciente/atención genera automáticamente los totales del informe.</p>
+          </div>
+        </div>
+        <form id="attentionForm">
+          <input type="hidden" id="editId">
+
+          <h3>Datos del paciente</h3>
+          <div class="form-grid">
+            <label>Nombre completo *
+              <input required id="name" placeholder="Nombres y apellidos">
+            </label>
+            <label>DNI
+              <input id="dni" placeholder="N° de documento" inputmode="numeric" maxlength="15">
+            </label>
+            <label>N° de cama
+              <input id="bed" placeholder="Ej. 204-B">
+            </label>
+            <label>Fecha de nacimiento
+              <input type="date" id="birthDate">
+            </label>
+            <label>Edad
+              <div class="age-input">
+                <input type="number" min="0" id="ageValue" placeholder="Ej. 34">
+                <select id="ageUnit">
+                  <option value="años">años</option>
+                  <option value="meses">meses</option>
+                </select>
+              </div>
+            </label>
+            <label>Diagnóstico
+              <input id="diagnosis" placeholder="Diagnóstico principal">
+            </label>
+            <label>Procedencia
+              <input id="origin" placeholder="Distrito / localidad de origen">
+            </label>
+            <label>Código / N° de historia
+              <input id="patient" placeholder="Opcional">
+            </label>
+          </div>
+
+          <h3>Datos de la atención</h3>
+          <div class="form-grid">
+            <label>Fecha *
+              <input required type="date" id="date">
+            </label>
+            <label>Tipo de atención *
+              <select required id="type">
+                <option value="">Seleccionar...</option>
+                <option>Consulta externa</option>
+                <option>Hospitalización</option>
+              </select>
+            </label>
+            <label>Servicio *
+              <select required id="service"><option value="">Selecciona primero el tipo</option></select>
+            </label>
+          </div>
+
+          <h3>Atenciones realizadas</h3>
+          <div class="checks" id="actions"></div>
+
+          <h3>Morbilidad social</h3>
+          <div class="checks" id="morbidity"></div>
+
+          <div class="form-actions">
+            <button type="button" class="secondary" id="cancelEdit">Cancelar</button>
+            <button class="primary" type="submit">💾 Guardar atención</button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <section id="records" class="view">
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Atenciones registradas</h2>
+            <p class="muted">Busca, edita, genera el acta o elimina registros.</p>
+          </div>
+          <div class="toolbar">
+            <input id="search" placeholder="🔎 Buscar por nombre, DNI o código...">
+            <input type="month" id="recordMonth">
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table id="recordsTable"></table>
+        </div>
+      </div>
+    </section>
+
+    <section id="report" class="view">
+      <div class="panel report-panel">
+        <div class="report-tools no-print">
+          <label>Mes <input type="month" id="reportMonth"></label>
+          <div class="report-buttons">
+            <button class="secondary" id="printReport" type="button">🖨️ Imprimir</button>
+            <button class="primary" id="pdfReport" type="button">📄 Guardar PDF</button>
+          </div>
+        </div>
+        <div id="reportContent"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="actaModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-head no-print">
+        <h2>📄 Acta de entrega</h2>
+        <button class="icon-btn" id="closeActa" type="button" aria-label="Cerrar">✖</button>
+      </div>
+      <div class="no-print acta-link">
+        <label>Vincular a una atención registrada
+          <select id="actaRecordSelect"><option value="">-- Seleccionar --</option></select>
+        </label>
+        <p class="muted">Selecciona una atención para completar automáticamente los datos del paciente. Puedes editar o agregar lo que falte antes de guardar o imprimir.</p>
+      </div>
+
+      <div id="actaPrintArea">
+        <div class="report-title">
+          <h2>ACTA DE ENTREGA</h2>
+          <h3>DEPARTAMENTO DE SERVICIO SOCIAL</h3>
+        </div>
+        <div class="form-grid">
+          <label>Nombre completo <input id="actaName"></label>
+          <label>DNI <input id="actaDni"></label>
+          <label>N° de cama <input id="actaBed"></label>
+          <label>Fecha de nacimiento <input type="date" id="actaBirthDate"></label>
+          <label>Edad <input id="actaAge" placeholder="Ej. 34 años"></label>
+          <label>Diagnóstico <input id="actaDiagnosis"></label>
+          <label>Procedencia <input id="actaOrigin"></label>
+          <label>Fecha de entrega <input type="date" id="actaDeliveryDate"></label>
+        </div>
+        <label>Detalle de lo entregado / gestión realizada
+          <textarea id="actaDetails" rows="4" placeholder="Describe lo entregado o la gestión realizada"></textarea>
+        </label>
+        <label>Observaciones
+          <textarea id="actaObservations" rows="3"></textarea>
+        </label>
+        <div class="form-grid">
+          <label>Entregado por (Servicio Social) <input id="actaDeliveredBy"></label>
+          <label>Recibido por (paciente / familiar) <input id="actaReceivedBy"></label>
+        </div>
+        <div class="signatures">
+          <div class="sign-box"><span>Firma - Entregado por</span></div>
+          <div class="sign-box"><span>Firma - Recibido por</span></div>
+        </div>
+      </div>
+
+      <div class="form-actions no-print">
+        <button class="secondary" id="actaPrintBtn" type="button">🖨️ Imprimir</button>
+        <button class="secondary" id="actaPdfBtn" type="button">📄 Guardar PDF</button>
+        <button class="primary" id="actaSaveBtn" type="button">💾 Guardar datos del acta</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
