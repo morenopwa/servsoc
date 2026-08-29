@@ -9,7 +9,7 @@ const SERVICES={
  "Consulta externa":["Cirugía","Ginecología","Obstetricia","Medicina","Pediatría","Traumatología","Tropicales","UTR","Evaluación invalidez","MAMIS","Diálisis Peritoneal Adultos","Otros"],
  "Hospitalización":["Cirugía","Ginecología","Obstetricia","Recién Nac.","Medicina","Pediatría","Traumatología","Tropicales","Oncología","UHSMA","CENEX","UTR","Otros"]
 };
-const MAX_AGE=120;
+const MAX_AGE=90;
 const $=id=>document.getElementById(id);
 const now=new Date(), pad=n=>String(n).padStart(2,"0");
 const monthNow=`${now.getFullYear()}-${pad(now.getMonth()+1)}`, dateNow=`${monthNow}-${pad(now.getDate())}`;
@@ -68,13 +68,15 @@ function ageLabel(r){
  if(unit==="meses")return`${r.ageValue} ${r.ageValue===1?"mes":"meses"}`;
  return`${r.ageValue} ${r.ageValue===1?"año":"años"}`;
 }
-function ageBucketKey(r){
+function ageInfo(r){
  if(r.ageValue===undefined||r.ageValue===null||r.ageValue==="")return null;
  const v=Number(r.ageValue);
  if(isNaN(v))return null;
- if((r.ageUnit||"años")==="meses")return"m";
- if(v<=0)return"m";
- return Math.min(Math.round(v),MAX_AGE);
+ if((r.ageUnit||"años")==="meses")return{type:"m"};
+ if(v<=0)return{type:"m"};
+ const years=Math.round(v);
+ if(years>MAX_AGE)return{type:"otros",value:years};
+ return{type:"y",value:years};
 }
 function computeAge(dobStr,refStr){
  const dob=new Date(dobStr+"T00:00:00"), ref=new Date((refStr||dateNow)+"T00:00:00");
@@ -153,7 +155,8 @@ $("attentionForm").onsubmit=e=>{
    ageValue:$("ageValue").value===""?"":Number($("ageValue").value),
    ageUnit:$("ageUnit").value,
    diagnosis:$("diagnosis").value.trim(),
-   origin:$("origin").value.trim(),
+   province:$("province").value.trim(),
+   district:$("district").value.trim(),
    patient:$("patient").value.trim(),
    type:$("type").value,
    service:$("service").value,
@@ -179,7 +182,7 @@ window.editRecord=id=>{
  $("editId").value=r.id;$("date").value=r.date;
  $("name").value=r.name||"";$("dni").value=r.dni||"";$("bed").value=r.bed||"";
  $("birthDate").value=r.birthDate||"";$("ageValue").value=r.ageValue??"";$("ageUnit").value=r.ageUnit||"años";
- $("diagnosis").value=r.diagnosis||"";$("origin").value=r.origin||"";$("patient").value=r.patient||"";
+ $("diagnosis").value=r.diagnosis||"";$("province").value=r.province||"";$("district").value=r.district||"";$("patient").value=r.patient||"";
  $("type").value=r.type;populateServices();$("service").value=r.service;$("formTitle").textContent="Editar atención";
  document.querySelectorAll('input[name="action"]').forEach(x=>x.checked=r.actions.includes(x.value));
  document.querySelectorAll('input[name="morbidity"]').forEach(x=>x.checked=r.morbidity.includes(x.value));
@@ -208,10 +211,18 @@ function reportTable(type,rs){
 function buildAgeRows(rs){
  const buckets={m:0};
  for(let i=1;i<=MAX_AGE;i++)buckets[i]=0;
- rs.forEach(r=>{const k=ageBucketKey(r);if(k!==null)buckets[k]=(buckets[k]||0)+1});
+ const otros=[];
+ rs.forEach(r=>{
+   const info=ageInfo(r);
+   if(!info)return;
+   if(info.type==="m")buckets.m++;
+   else if(info.type==="y")buckets[info.value]++;
+   else otros.push(info.value);
+ });
  const rows=[["0 a 11 meses",buckets.m]];
  for(let i=1;i<=MAX_AGE;i++)rows.push([`${i} ${i===1?"año":"años"}`,buckets[i]]);
- return rows;
+ otros.sort((a,b)=>a-b);
+ return{rows,otrosCount:otros.length,otrosAges:otros};
 }
 function groupCount(rs,field){
  const map=new Map();
@@ -236,9 +247,13 @@ function renderReport(){
  const a=reportTable("Consulta externa",rs), b=reportTable("Hospitalización",rs);
  const grand=a.totals.map((v,i)=>v+b.totals[i]);
  const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv."];
- const ageRows=buildAgeRows(rs);
+ const {rows:ageRows,otrosCount,otrosAges}=buildAgeRows(rs);
  const diagRows=groupCount(rs,"diagnosis");
- const originRows=groupCount(rs,"origin");
+ const provinceRows=groupCount(rs,"province");
+ const districtRows=groupCount(rs,"district");
+ const otrosLine=otrosCount
+   ?`<div class="age-otros"><strong>Otros (mayores de ${MAX_AGE} años):</strong> ${otrosCount} paciente(s) — edades: ${otrosAges.join(", ")} años</div>`
+   :`<div class="age-otros"><strong>Otros (mayores de ${MAX_AGE} años):</strong> 0 pacientes</div>`;
  $("reportContent").innerHTML=`
  <div class="report-title"><h2>INFORME DE PRODUCCIÓN DEL DEPARTAMENTO DE SERVICIO SOCIAL</h2><h3>UNIDAD: CONSULTA EXTERNA / HOSPITALIZACIÓN</h3></div>
  <div class="report-meta"><span>MES: <strong>${label}</strong></span><span>Total de registros: <strong>${rs.length}</strong></span></div>
@@ -246,13 +261,17 @@ function renderReport(){
  <h4>HOSPITALIZACIÓN</h4>${b.html}
  <h4>TOTAL GENERAL (Subtotal 1 + Subtotal 2)</h4>
  <table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody><tr class="grand"><td>TOTAL GENERAL</td>${grand.map(v=>`<td>${v||""}</td>`).join("")}</tr></tbody></table>
- <h4>POBLACIÓN ATENDIDA POR EDAD</h4>
- <div class="age-grid">${ageRows.map(([l,c])=>`<div class="age-cell"><span>${l}</span><b>${c||""}</b></div>`).join("")}</div>
- <div class="report-grid-2">
-   <div><h4>POBLACIÓN ATENDIDA POR DIAGNÓSTICO</h4>${miniTable(diagRows,"Diagnóstico")}</div>
-   <div><h4>POBLACIÓN ATENDIDA POR PROCEDENCIA</h4>${miniTable(originRows,"Procedencia")}</div>
+ <div class="report-page2">
+   <h4>POBLACIÓN ATENDIDA POR EDAD</h4>
+   <div class="age-grid">${ageRows.map(([l,c])=>`<div class="age-cell"><span>${l}</span><b>${c||""}</b></div>`).join("")}</div>
+   ${otrosLine}
+   <div class="report-grid-3">
+     <div><h4>POR DIAGNÓSTICO</h4>${miniTable(diagRows,"Diagnóstico")}</div>
+     <div><h4>POR PROVINCIA</h4>${miniTable(provinceRows,"Provincia")}</div>
+     <div><h4>POR DISTRITO</h4>${miniTable(districtRows,"Distrito")}</div>
+   </div>
  </div>
- <p class="muted">Reporte generado por el sistema de control de atenciones.</p>`;
+ <p class="muted no-print">Reporte generado por el sistema de control de atenciones.</p>`;
 }
 
 function saveAsPdf(el,filename,orientation="landscape"){
@@ -278,7 +297,8 @@ function fillActaFromRecord(id){
  $("actaBirthDate").value=r?.birthDate||"";
  $("actaAge").value=r?ageLabel(r):"";
  $("actaDiagnosis").value=r?.diagnosis||"";
- $("actaOrigin").value=r?.origin||"";
+ $("actaProvince").value=r?.province||"";
+ $("actaDistrict").value=r?.district||"";
  const acta=r?.acta||{};
  $("actaDeliveryDate").value=acta.deliveryDate||dateNow;
  $("actaDetails").value=acta.details||"";
@@ -308,7 +328,8 @@ $("actaSaveBtn").onclick=()=>{
    bed:$("actaBed").value.trim()||records[i].bed,
    birthDate:$("actaBirthDate").value||records[i].birthDate,
    diagnosis:$("actaDiagnosis").value.trim()||records[i].diagnosis,
-   origin:$("actaOrigin").value.trim()||records[i].origin,
+   province:$("actaProvince").value.trim()||records[i].province,
+   district:$("actaDistrict").value.trim()||records[i].district,
    acta:{
      deliveryDate:$("actaDeliveryDate").value,
      details:$("actaDetails").value.trim(),
@@ -340,7 +361,8 @@ function recordToRow(r){
    "Unidad edad":r.ageUnit||"",
    "N° de cama":r.bed||"",
    "Diagnóstico":r.diagnosis||"",
-   "Procedencia":r.origin||"",
+   "Provincia":r.province||"",
+   "Distrito":r.district||"",
    "Código / N° historia":r.patient||"",
    "Tipo de atención":r.type,
    "Servicio":r.service
@@ -367,7 +389,8 @@ function rowToRecord(row){
    ageUnit:get("Unidad edad")||"años",
    bed:get("N° de cama"),
    diagnosis:get("Diagnóstico"),
-   origin:get("Procedencia"),
+   province:get("Provincia")||get("Procedencia"),
+   district:get("Distrito"),
    patient:get("Código / N° historia"),
    type:get("Tipo de atención"),
    service:get("Servicio"),

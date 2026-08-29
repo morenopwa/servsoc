@@ -75,8 +75,8 @@ td:first-child,th:first-child{text-align:left}
 .report-title h2{margin:0;font-size:19px}
 .report-title h3{margin:5px 0 15px;font-size:15px}
 .report-meta{display:flex;justify-content:space-between;margin:12px 0;font-size:12px}
-.report-table{font-size:9px;width:100%}
-.report-table th,.report-table td{padding:5px 3px;white-space:normal;line-height:1.1}
+.report-table{font-size:9px;width:100%;border:1px solid #94a3b8}
+.report-table th,.report-table td{padding:5px 3px;white-space:normal;line-height:1.1;border:1px solid #94a3b8}
 .report-table th{font-size:8px}
 .subtotal td{font-weight:800;background:#f1f5f9}
 .grand td{font-weight:900;background:#e2e8f0}
@@ -87,8 +87,11 @@ td:first-child,th:first-child{text-align:left}
 .age-cell{display:flex;justify-content:space-between;gap:8px;padding:3px 6px;border-bottom:1px dashed #e5e7eb;break-inside:avoid}
 .age-cell b{color:#2563eb}
 .report-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:6px}
+.report-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:6px}
 .mini-table{width:100%;border-collapse:collapse;font-size:12px}
 .mini-table th,.mini-table td{border-bottom:1px solid #e5e7eb;padding:5px 6px;text-align:left;white-space:normal}
+.age-otros{font-size:12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-bottom:16px}
+.report-page2{margin-top:10px}
 
 /* Modal - Acta de entrega */
 .modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.55);z-index:80;align-items:center;justify-content:center;padding:20px}
@@ -135,14 +138,20 @@ td:first-child,th:first-child{text-align:left}
 }
 
 @media print{
+  @page{size:A4 landscape;margin:10mm}
   body{background:#fff}
   .sidebar,.topbar,.no-print,.sidebar-overlay{display:none!important}
   .main{margin:0;padding:0}
   .panel{border:0;box-shadow:none;padding:0}
-  .report-table{font-size:7px}
-  .report-table th,.report-table td{padding:3px 2px}
+  .report-table{font-size:10px}
+  .report-table th{font-size:9.5px}
+  .report-table th,.report-table td{padding:5px 4px}
   .report-panel{display:block!important}
-  .age-grid{column-count:6;font-size:10px}
+  .report-page2{page-break-before:always;padding-top:6mm}
+  .age-grid{column-count:4;font-size:13px;column-gap:20px}
+  .age-otros{font-size:13px}
+  .mini-table{font-size:12.5px}
+  .report-grid-3{gap:22px}
 
   body.printing-acta > *:not(#actaModal){display:none!important}
   body.printing-acta #actaModal{position:static;background:none;padding:0;display:block!important}

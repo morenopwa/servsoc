@@ -94,10 +94,13 @@
               </div>
             </label>
             <label>Diagnóstico
-              <input id="diagnosis" placeholder="Diagnóstico principal">
+              <input id="diagnosis" list="diagnosisList" placeholder="Escribe o elige de la lista">
             </label>
-            <label>Procedencia
-              <input id="origin" placeholder="Distrito / localidad de origen">
+            <label>Provincia
+              <input id="province" placeholder="Ej. Lima">
+            </label>
+            <label>Distrito
+              <input id="district" placeholder="Ej. San Martín de Porres">
             </label>
             <label>Código / N° de historia
               <input id="patient" placeholder="Opcional">
@@ -191,8 +194,9 @@
           <label>N° de cama <input id="actaBed"></label>
           <label>Fecha de nacimiento <input type="date" id="actaBirthDate"></label>
           <label>Edad <input id="actaAge" placeholder="Ej. 34 años"></label>
-          <label>Diagnóstico <input id="actaDiagnosis"></label>
-          <label>Procedencia <input id="actaOrigin"></label>
+          <label>Diagnóstico <input id="actaDiagnosis" list="diagnosisList"></label>
+          <label>Provincia <input id="actaProvince"></label>
+          <label>Distrito <input id="actaDistrict"></label>
           <label>Fecha de entrega <input type="date" id="actaDeliveryDate"></label>
         </div>
         <label>Detalle de lo entregado / gestión realizada
@@ -218,6 +222,59 @@
       </div>
     </div>
   </div>
+
+  <datalist id="diagnosisList">
+    <option value="Diabetes mellitus tipo 2">
+    <option value="Hipertensión arterial">
+    <option value="Neumonía">
+    <option value="Tuberculosis pulmonar">
+    <option value="Enfermedad renal crónica">
+    <option value="Enfermedad renal crónica en hemodiálisis">
+    <option value="Infección del tracto urinario">
+    <option value="VIH/SIDA">
+    <option value="Dengue">
+    <option value="Malaria">
+    <option value="Leishmaniasis cutánea">
+    <option value="Hepatitis viral">
+    <option value="Cirrosis hepática">
+    <option value="Apendicitis aguda">
+    <option value="Colecistitis aguda">
+    <option value="Litiasis vesicular">
+    <option value="Litiasis renal">
+    <option value="Hernia inguinal">
+    <option value="Fractura de cadera">
+    <option value="Fractura de fémur">
+    <option value="Politraumatismo">
+    <option value="Accidente cerebrovascular (ACV)">
+    <option value="Infarto agudo de miocardio">
+    <option value="Insuficiencia cardiaca">
+    <option value="Preeclampsia">
+    <option value="Embarazo de alto riesgo">
+    <option value="Amenaza de parto pretérmino">
+    <option value="Recién nacido prematuro">
+    <option value="Sepsis neonatal">
+    <option value="Cáncer de cuello uterino">
+    <option value="Cáncer de mama">
+    <option value="Cáncer gástrico">
+    <option value="Leucemia">
+    <option value="Desnutrición infantil">
+    <option value="Anemia">
+    <option value="Asma bronquial">
+    <option value="EPOC">
+    <option value="Bronquiolitis">
+    <option value="Enfermedad diarreica aguda (EDA)">
+    <option value="Deshidratación">
+    <option value="Epilepsia / Convulsiones">
+    <option value="Depresión">
+    <option value="Esquizofrenia">
+    <option value="Violencia familiar">
+    <option value="Intento de suicidio">
+    <option value="Quemaduras">
+    <option value="Intoxicación">
+    <option value="COVID-19">
+    <option value="Peritonitis">
+    <option value="Traumatismo encéfalo craneano (TEC)">
+  </datalist>
 
   <div id="toast"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
