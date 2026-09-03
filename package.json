@@ -1,0 +1,11 @@
+{
+  "name": "control-servicio-social",
+  "version": "3.0.0",
+  "description": "Control de Atenciones - Servicio Social (sesiones por DNI, datos persistentes en Supabase)",
+  "private": true,
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node server.js",
+    "check-db": "node scripts/check-db.js"
+  }
+}

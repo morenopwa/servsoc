@@ -13,15 +13,14 @@ const MAX_AGE=90;
 const $=id=>document.getElementById(id);
 const now=new Date(), pad=n=>String(n).padStart(2,"0");
 const monthNow=`${now.getFullYear()}-${pad(now.getMonth()+1)}`, dateNow=`${monthNow}-${pad(now.getDate())}`;
-let records=JSON.parse(localStorage.getItem("social_records")||"[]");
+let records=[];
+let currentUserInfo=null;
 
 $("today").textContent=now.toLocaleDateString("es-PE",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
 $("dashMonth").value=monthNow;$("recordMonth").value=monthNow;$("reportMonth").value=monthNow;$("date").value=dateNow;
 
-function save(){localStorage.setItem("social_records",JSON.stringify(records))}
-function toast(msg){$("toast").textContent=msg;$("toast").classList.add("toast-show");setTimeout(()=>$("toast").classList.remove("toast-show"),2200)}
+function toast(msg){$("toast").textContent=msg;$("toast").classList.add("toast-show");setTimeout(()=>$("toast").classList.remove("toast-show"),2400)}
 function monthOf(r){return r.date.slice(0,7)}
-function checkedMap(keys){return Object.fromEntries(keys.map(([k])=>[k,false]))}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function initChecks(){
  $("actions").innerHTML=ACTIONS.map(([k,l])=>`<label class="check"><input type="checkbox" name="action" value="${k}"> ${l}</label>`).join("");
@@ -35,6 +34,129 @@ function populateServices(){
 }
 $("type").addEventListener("change",populateServices);
 
+/* ================= Comunicación con el servidor (API) ================= */
+async function api(path,options={}){
+ const res=await fetch(path,{
+   method:options.method||"GET",
+   headers:options.body?{"Content-Type":"application/json"}:{},
+   body:options.body?JSON.stringify(options.body):undefined,
+   credentials:"same-origin"
+ });
+ let data=null;
+ try{data=await res.json()}catch(e){}
+ if(res.status===401){
+   currentUserInfo=null;
+   showLogin();
+   const err=new Error((data&&data.error)||"Debes iniciar sesión");
+   err.status=401;throw err;
+ }
+ if(!res.ok){
+   const err=new Error((data&&data.error)||`Error ${res.status}`);
+   err.status=res.status;throw err;
+ }
+ return data;
+}
+async function loadRecords(){
+ try{const d=await api("/api/records");records=d.records||[]}
+ catch(e){if(e.status!==401)toast(e.message||"No se pudieron cargar los datos")}
+}
+
+/* ============================= Autenticación ============================ */
+function showLogin(){
+ $("loginScreen").classList.remove("app-hidden");
+ $("appRoot").classList.add("app-hidden");
+}
+function applyUserToUI(){
+ $("userNameLabel").textContent=currentUserInfo.name;
+ $("userRoleLabel").textContent=currentUserInfo.role==="admin"?"Administrador(a)":"Asistenta social";
+ document.querySelectorAll(".admin-only").forEach(el=>{el.style.display=currentUserInfo.role==="admin"?"":"none"});
+}
+async function enterApp(){
+ $("loginScreen").classList.add("app-hidden");
+ $("appRoot").classList.remove("app-hidden");
+ applyUserToUI();
+ await showView("dashboard");
+}
+async function bootApp(){
+ try{
+   const d=await api("/api/me");
+   currentUserInfo=d.user;
+   await enterApp();
+ }catch(e){showLogin()}
+}
+$("loginForm").onsubmit=async e=>{
+ e.preventDefault();
+ $("loginError").textContent="";
+ const dni=$("loginDni").value.trim(), password=$("loginPassword").value;
+ try{
+   const d=await api("/api/login",{method:"POST",body:{dni,password}});
+   currentUserInfo=d.user;
+   $("loginPassword").value="";
+   await enterApp();
+   if(currentUserInfo.mustChangePassword) toast("Recuerda cambiar tu contraseña inicial en '🔑 Contraseña'");
+ }catch(err){
+   $("loginError").textContent=err.message||"No se pudo iniciar sesión";
+ }
+};
+$("logoutBtn").onclick=async ()=>{
+ try{await api("/api/logout",{method:"POST"})}catch(e){}
+ currentUserInfo=null;records=[];
+ $("loginDni").value="";$("loginPassword").value="";$("loginError").textContent="";
+ showLogin();
+};
+
+/* ------- Cambiar contraseña ------- */
+$("changePassBtn").onclick=()=>{
+ $("changePasswordForm").reset();$("changePassError").textContent="";
+ $("changePasswordModal").classList.add("show");
+};
+$("closeChangePass").onclick=()=>$("changePasswordModal").classList.remove("show");
+$("changePasswordForm").onsubmit=async e=>{
+ e.preventDefault();
+ $("changePassError").textContent="";
+ const currentPassword=$("currentPassword").value, newPassword=$("newPassword").value, newPassword2=$("newPassword2").value;
+ if(newPassword!==newPassword2){$("changePassError").textContent="Las contraseñas nuevas no coinciden";return}
+ try{
+   await api("/api/change-password",{method:"POST",body:{currentPassword,newPassword}});
+   currentUserInfo.mustChangePassword=false;
+   $("changePasswordModal").classList.remove("show");
+   toast("Contraseña actualizada");
+ }catch(err){$("changePassError").textContent=err.message||"No se pudo cambiar la contraseña"}
+};
+
+/* ------- Administración de usuarios (solo admin) ------- */
+async function renderUsers(){
+ if(currentUserInfo.role!=="admin"){$("usersTable").innerHTML="";return}
+ const d=await api("/api/users").catch(()=>({users:[]}));
+ const users=d.users||[];
+ let html='<thead><tr><th>Nombre</th><th>DNI</th><th>Rol</th><th>Debe cambiar contraseña</th><th>Acciones</th></tr></thead><tbody>';
+ users.forEach(u=>{
+   const mine=u.id===currentUserInfo.id;
+   html+=`<tr><td>${escapeHtml(u.name)}</td><td>${escapeHtml(u.dni)}</td><td>${u.role==="admin"?"Administrador(a)":"Asistenta social"}</td><td>${u.mustChangePassword?"Sí":"No"}</td><td class="actions-cell">${mine?'<span class="muted">Tu usuario</span>':`<button title="Restablecer contraseña" onclick="resetUserPassword('${u.id}')">🔁</button><button title="Eliminar" onclick="deleteUser('${u.id}')">🗑️</button>`}</td></tr>`;
+ });
+ html+="</tbody>";$("usersTable").innerHTML=html;
+}
+$("newUserForm").onsubmit=async e=>{
+ e.preventDefault();
+ const name=$("newUserName").value.trim(), dni=$("newUserDni").value.trim();
+ try{
+   await api("/api/users",{method:"POST",body:{name,dni}});
+   toast("Usuario creado. Su contraseña inicial es su DNI.");
+   $("newUserForm").reset();
+   renderUsers();
+ }catch(err){toast(err.message||"No se pudo crear el usuario")}
+};
+window.deleteUser=async id=>{
+ if(!confirm("¿Eliminar este usuario?"))return;
+ try{await api("/api/users/"+encodeURIComponent(id),{method:"DELETE"});toast("Usuario eliminado");renderUsers()}
+ catch(err){toast(err.message||"No se pudo eliminar")}
+};
+window.resetUserPassword=async id=>{
+ if(!confirm("¿Restablecer la contraseña de este usuario a su DNI?"))return;
+ try{const r=await api(`/api/users/${encodeURIComponent(id)}/reset-password`,{method:"POST"});toast(`Contraseña restablecida a: ${r.newPassword}`);renderUsers()}
+ catch(err){toast(err.message||"No se pudo restablecer")}
+};
+
 /* ---------- Navegación / menú hamburguesa ---------- */
 document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>showView(btn.dataset.view)));
 $("quickNew").onclick=()=>showView("new");
@@ -43,16 +165,17 @@ function closeSidebar(){document.querySelector(".sidebar").classList.remove("ope
 $("hamburgerBtn").onclick=()=>{document.querySelector(".sidebar").classList.toggle("open");$("sidebarOverlay").classList.toggle("show")};
 $("sidebarOverlay").onclick=closeSidebar;
 
-function showView(view){
+async function showView(view){
  closeSidebar();
  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
  $(view).classList.add("active");
  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
- const titles={dashboard:"Resumen",new:"Nueva atención",records:"Atenciones registradas",report:"Informe mensual"};
- $("pageTitle").textContent=titles[view];
- if(view==="dashboard")renderDashboard();
- if(view==="records")renderRecords();
- if(view==="report")renderReport();
+ const titles={dashboard:"Resumen",new:"Nueva atención",records:"Atenciones registradas",report:"Informe mensual",users:"Usuarios del sistema"};
+ $("pageTitle").textContent=titles[view]||"";
+ if(view==="dashboard"){await loadRecords();renderDashboard()}
+ if(view==="records"){await loadRecords();renderRecords()}
+ if(view==="report"){await loadRecords();renderReport()}
+ if(view==="users")await renderUsers();
  window.scrollTo(0,0);
 }
 
@@ -140,7 +263,7 @@ function renderRecords(){
 }
 
 /* ---------- Alta / edición de atenciones ---------- */
-$("attentionForm").onsubmit=e=>{
+$("attentionForm").onsubmit=async e=>{
  e.preventDefault();
  const id=$("editId").value||crypto.randomUUID();
  const existing=records.find(x=>x.id===id);
@@ -165,10 +288,12 @@ $("attentionForm").onsubmit=e=>{
    acta:existing?existing.acta:null
  };
  if(!r.type||!r.service){toast("Selecciona tipo y servicio");return}
- const i=records.findIndex(x=>x.id===id);
- if(i>=0) records[i]=r; else records.push(r);
- save();toast(i>=0?"Atención actualizada":"Atención registrada");
- resetForm();showView("records");
+ try{
+   await api("/api/records",{method:"POST",body:r});
+   toast(existing?"Atención actualizada":"Atención registrada");
+   resetForm();
+   showView("records");
+ }catch(err){toast(err.message||"No se pudo guardar la atención")}
 };
 function resetForm(){
  $("attentionForm").reset();$("editId").value="";$("date").value=dateNow;$("formTitle").textContent="Registrar atención";
@@ -187,9 +312,13 @@ window.editRecord=id=>{
  document.querySelectorAll('input[name="action"]').forEach(x=>x.checked=r.actions.includes(x.value));
  document.querySelectorAll('input[name="morbidity"]').forEach(x=>x.checked=r.morbidity.includes(x.value));
 };
-window.deleteRecord=id=>{
+window.deleteRecord=async id=>{
  if(!confirm("¿Eliminar esta atención?"))return;
- records=records.filter(r=>r.id!==id);save();renderRecords();renderDashboard();toast("Atención eliminada");
+ try{
+   await api("/api/records/"+encodeURIComponent(id),{method:"DELETE"});
+   await loadRecords();renderRecords();renderDashboard();
+   toast("Atención eliminada");
+ }catch(err){toast(err.message||"No se pudo eliminar")}
 };
 
 /* ---------- Informe mensual ---------- */
@@ -274,13 +403,21 @@ function renderReport(){
  <p class="muted no-print">Reporte generado por el sistema de control de atenciones.</p>`;
 }
 
-function saveAsPdf(el,filename,orientation="landscape"){
+/* ---------- Impresión / PDF (orientación vertical u horizontal) ---------- */
+function setPageOrientation(o,margin){
+ let style=document.getElementById("dynamicPageStyle");
+ if(!style){style=document.createElement("style");style.id="dynamicPageStyle";document.head.appendChild(style)}
+ style.textContent=`@page{size:A4 ${o==="landscape"?"landscape":"portrait"};margin:${margin||"10mm"}}`;
+}
+function saveAsPdf(el,filename,orientation="portrait"){
  toast("Generando PDF...");
  const opt={margin:8,filename,image:{type:"jpeg",quality:0.98},html2canvas:{scale:2,useCORS:true},jsPDF:{unit:"mm",format:"a4",orientation}};
  html2pdf().set(opt).from(el).save();
 }
-$("printReport").onclick=()=>window.print();
-$("pdfReport").onclick=()=>saveAsPdf($("reportContent"),`informe-mensual-${$("reportMonth").value}.pdf`,"landscape");
+$("printOrientation").addEventListener("change",()=>setPageOrientation($("printOrientation").value));
+setPageOrientation($("printOrientation").value);
+$("printReport").onclick=()=>{setPageOrientation($("printOrientation").value);window.print()};
+$("pdfReport").onclick=()=>saveAsPdf($("reportContent"),`informe-mensual-${$("reportMonth").value}.pdf`,$("printOrientation").value);
 
 /* ---------- Acta de entrega ---------- */
 let actaCurrentId="";
@@ -306,7 +443,8 @@ function fillActaFromRecord(id){
  $("actaDeliveredBy").value=acta.deliveredBy||"";
  $("actaReceivedBy").value=acta.receivedBy||"";
 }
-window.openActa=(id="")=>{
+window.openActa=async (id="")=>{
+ await loadRecords();
  fillActaSelect();
  $("actaRecordSelect").value=id;
  actaCurrentId=id;
@@ -317,33 +455,42 @@ $("actaBtn").onclick=()=>openActa("");
 $("closeActa").onclick=()=>$("actaModal").classList.remove("show");
 $("actaRecordSelect").onchange=e=>{actaCurrentId=e.target.value;fillActaFromRecord(actaCurrentId)};
 
-$("actaSaveBtn").onclick=()=>{
+$("actaSaveBtn").onclick=async ()=>{
  if(!actaCurrentId){toast("Selecciona una atención registrada para vincular el acta");return}
- const i=records.findIndex(x=>x.id===actaCurrentId);
- if(i<0){toast("Registro no encontrado");return}
- records[i]={
-   ...records[i],
-   name:$("actaName").value.trim()||records[i].name,
-   dni:$("actaDni").value.trim()||records[i].dni,
-   bed:$("actaBed").value.trim()||records[i].bed,
-   birthDate:$("actaBirthDate").value||records[i].birthDate,
-   diagnosis:$("actaDiagnosis").value.trim()||records[i].diagnosis,
-   province:$("actaProvince").value.trim()||records[i].province,
-   district:$("actaDistrict").value.trim()||records[i].district,
+ const existing=records.find(x=>x.id===actaCurrentId);
+ if(!existing){toast("Registro no encontrado");return}
+ const updated={
+   ...existing,
+   name:$("actaName").value.trim()||existing.name,
+   dni:$("actaDni").value.trim()||existing.dni,
+   bed:$("actaBed").value.trim()||existing.bed,
+   birthDate:$("actaBirthDate").value||existing.birthDate,
+   diagnosis:$("actaDiagnosis").value.trim()||existing.diagnosis,
+   province:$("actaProvince").value.trim()||existing.province,
+   district:$("actaDistrict").value.trim()||existing.district,
    acta:{
      deliveryDate:$("actaDeliveryDate").value,
      details:$("actaDetails").value.trim(),
      observations:$("actaObservations").value.trim(),
      deliveredBy:$("actaDeliveredBy").value.trim(),
-     receivedBy:$("actaReceivedBy").value.trim(),
-     updatedAt:new Date().toISOString()
+     receivedBy:$("actaReceivedBy").value.trim()
    }
  };
- save();renderRecords();renderDashboard();
- toast("Acta guardada");
+ try{
+   await api("/api/records",{method:"POST",body:updated});
+   await loadRecords();renderRecords();renderDashboard();
+   toast("Acta guardada");
+ }catch(err){toast(err.message||"No se pudo guardar el acta")}
 };
-$("actaPrintBtn").onclick=()=>{document.body.classList.add("printing-acta");window.print()};
-window.addEventListener("afterprint",()=>document.body.classList.remove("printing-acta"));
+$("actaPrintBtn").onclick=()=>{
+ setPageOrientation("portrait","15mm");
+ document.body.classList.add("printing-acta");
+ window.print();
+};
+window.addEventListener("afterprint",()=>{
+ document.body.classList.remove("printing-acta");
+ if($("report").classList.contains("active")) setPageOrientation($("printOrientation").value);
+});
 $("actaPdfBtn").onclick=()=>{
  const name=($("actaName").value||"paciente").trim().replace(/\s+/g,"_")||"paciente";
  saveAsPdf($("actaPrintArea"),`acta-entrega-${name}.pdf`,"portrait");
@@ -405,7 +552,8 @@ function rowToRecord(row){
    }:null
  };
 }
-$("backupBtn").onclick=()=>{
+$("backupBtn").onclick=async ()=>{
+ await loadRecords();
  const rows=records.map(recordToRow);
  const ws=XLSX.utils.json_to_sheet(rows);
  const wb=XLSX.utils.book_new();
@@ -417,9 +565,16 @@ $("restoreInput").onchange=e=>{
  const f=e.target.files[0];if(!f)return;
  const isJson=f.name.toLowerCase().endsWith(".json");
  const rd=new FileReader();
+ const finish=async recs=>{
+   try{
+     const r=await api("/api/records/import",{method:"POST",body:{records:recs}});
+     await loadRecords();renderDashboard();renderRecords();
+     toast(`Respaldo importado (${r.count} registros)`);
+   }catch(err){toast(err.message||"No se pudo importar el respaldo")}
+ };
  if(isJson){
    rd.onload=()=>{
-     try{const x=JSON.parse(rd.result);if(!Array.isArray(x))throw 0;records=x;save();renderDashboard();renderRecords();toast("Respaldo importado")}
+     try{const x=JSON.parse(rd.result);if(!Array.isArray(x))throw 0;finish(x)}
      catch{toast("Archivo de respaldo inválido")}
    };
    rd.readAsText(f);
@@ -430,9 +585,7 @@ $("restoreInput").onchange=e=>{
        const wb=XLSX.read(data,{type:"array"});
        const ws=wb.Sheets[wb.SheetNames[0]];
        const rows=XLSX.utils.sheet_to_json(ws,{defval:""});
-       records=rows.map(rowToRecord);
-       save();renderDashboard();renderRecords();
-       toast("Respaldo importado desde Excel");
+       finish(rows.map(rowToRecord));
      }catch(err){toast("Archivo de respaldo inválido")}
    };
    rd.readAsArrayBuffer(f);
@@ -440,4 +593,4 @@ $("restoreInput").onchange=e=>{
  e.target.value="";
 };
 
-renderDashboard();
+bootApp();
