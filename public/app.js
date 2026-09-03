@@ -4,12 +4,42 @@ const ACTIONS=[
  ["socialFile","Ficha social"],["fese","FESE"],["sis","Afiliación SIS"],["counseling","Consejería social"],
  ["orientation","Orientación social"],["talk","Charla/Reunión"]
 ];
-const MORBIDITY=[["health","Salud"],["economic","Económica"],["family","Familiar"],["housing","Vivienda"]];
+const MORBIDITY=[["health","Salud"],["economic","Económica"],["family","Familiar"],["housing","Vivienda"],["legal","Legal"]];
 const SERVICES={
  "Consulta externa":["Cirugía","Ginecología","Obstetricia","Medicina","Pediatría","Traumatología","Tropicales","UTR","Evaluación invalidez","MAMIS","Diálisis Peritoneal Adultos","Otros"],
  "Hospitalización":["Cirugía","Ginecología","Obstetricia","Recién Nac.","Medicina","Pediatría","Traumatología","Tropicales","Oncología","UHSMA","CENEX","UTR","Otros"]
 };
 const MAX_AGE=90;
+const DEFAULT_COUNTRY="Perú";
+const COUNTRIES=[
+ "Perú","Colombia","Venezuela","Ecuador","Bolivia","Chile","Argentina","Brasil","Paraguay","Uruguay",
+ "México","Cuba","República Dominicana","Haití","Panamá","Costa Rica","Nicaragua","Honduras","El Salvador","Guatemala",
+ "España","Estados Unidos","Canadá","Italia","Francia","Alemania","Reino Unido","Portugal","China","Japón",
+ "Corea del Sur","India","Filipinas"
+];
+const DEPARTMENTS_BY_COUNTRY={
+ "Perú":["Amazonas","Áncash","Apurímac","Arequipa","Ayacucho","Cajamarca","Callao","Cusco","Huancavelica","Huánuco","Ica","Junín","La Libertad","Lambayeque","Lima","Loreto","Madre de Dios","Moquegua","Pasco","Piura","Puno","San Martín","Tacna","Tumbes","Ucayali"],
+ "Colombia":["Amazonas","Antioquia","Arauca","Atlántico","Bolívar","Boyacá","Caldas","Caquetá","Casanare","Cauca","Cesar","Chocó","Córdoba","Cundinamarca","Guainía","Guaviare","Huila","La Guajira","Magdalena","Meta","Nariño","Norte de Santander","Putumayo","Quindío","Risaralda","San Andrés y Providencia","Santander","Sucre","Tolima","Valle del Cauca","Vaupés","Vichada","Bogotá D.C."],
+ "Venezuela":["Amazonas","Anzoátegui","Apure","Aragua","Barinas","Bolívar","Carabobo","Cojedes","Delta Amacuro","Distrito Capital","Falcón","Guárico","Lara","Mérida","Miranda","Monagas","Nueva Esparta","Portuguesa","Sucre","Táchira","Trujillo","Vargas","Yaracuy","Zulia"],
+ "Ecuador":["Azuay","Bolívar","Cañar","Carchi","Chimborazo","Cotopaxi","El Oro","Esmeraldas","Galápagos","Guayas","Imbabura","Loja","Los Ríos","Manabí","Morona Santiago","Napo","Orellana","Pastaza","Pichincha","Santa Elena","Santo Domingo de los Tsáchilas","Sucumbíos","Tungurahua","Zamora Chinchipe"],
+ "Bolivia":["Beni","Chuquisaca","Cochabamba","La Paz","Oruro","Pando","Potosí","Santa Cruz","Tarija"],
+ "Chile":["Arica y Parinacota","Tarapacá","Antofagasta","Atacama","Coquimbo","Valparaíso","Metropolitana de Santiago","O'Higgins","Maule","Ñuble","Biobío","La Araucanía","Los Ríos","Los Lagos","Aysén","Magallanes"],
+ "Argentina":["Buenos Aires","Ciudad Autónoma de Buenos Aires","Catamarca","Chaco","Chubut","Córdoba","Corrientes","Entre Ríos","Formosa","Jujuy","La Pampa","La Rioja","Mendoza","Misiones","Neuquén","Río Negro","Salta","San Juan","San Luis","Santa Cruz","Santa Fe","Santiago del Estero","Tierra del Fuego","Tucumán"]
+};
+DEPARTMENTS_BY_COUNTRY["Brasil"]=["Acre","Alagoas","Amapá","Amazonas","Bahía","Ceará","Distrito Federal","Espírito Santo","Goiás","Maranhão","Mato Grosso","Mato Grosso do Sul","Minas Gerais","Pará","Paraíba","Paraná","Pernambuco","Piauí","Río de Janeiro","Río Grande do Norte","Río Grande do Sul","Rondônia","Roraima","Santa Catarina","São Paulo","Sergipe","Tocantins"];
+DEPARTMENTS_BY_COUNTRY["Paraguay"]=["Alto Paraguay","Alto Paraná","Amambay","Boquerón","Caaguazú","Caazapá","Canindeyú","Central","Concepción","Cordillera","Guairá","Itapúa","Misiones","Ñeembucú","Paraguarí","Presidente Hayes","San Pedro","Asunción"];
+DEPARTMENTS_BY_COUNTRY["Uruguay"]=["Artigas","Canelones","Cerro Largo","Colonia","Durazno","Flores","Florida","Lavalleja","Maldonado","Montevideo","Paysandú","Río Negro","Rivera","Rocha","Salto","San José","Soriano","Tacuarembó","Treinta y Tres"];
+DEPARTMENTS_BY_COUNTRY["México"]=["Aguascalientes","Baja California","Baja California Sur","Campeche","Chiapas","Chihuahua","Ciudad de México","Coahuila","Colima","Durango","Guanajuato","Guerrero","Hidalgo","Jalisco","México","Michoacán","Morelos","Nayarit","Nuevo León","Oaxaca","Puebla","Querétaro","Quintana Roo","San Luis Potosí","Sinaloa","Sonora","Tabasco","Tamaulipas","Tlaxcala","Veracruz","Yucatán","Zacatecas"];
+DEPARTMENTS_BY_COUNTRY["Panamá"]=["Bocas del Toro","Chiriquí","Coclé","Colón","Darién","Herrera","Los Santos","Panamá","Panamá Oeste","Veraguas"];
+DEPARTMENTS_BY_COUNTRY["Costa Rica"]=["Alajuela","Cartago","Guanacaste","Heredia","Limón","Puntarenas","San José"];
+DEPARTMENTS_BY_COUNTRY["Guatemala"]=["Alta Verapaz","Baja Verapaz","Chimaltenango","Chiquimula","El Progreso","Escuintla","Guatemala","Huehuetenango","Izabal","Jalapa","Jutiapa","Petén","Quetzaltenango","Quiché","Retalhuleu","Sacatepéquez","San Marcos","Santa Rosa","Sololá","Suchitepéquez","Totonicapán","Zacapa"];
+DEPARTMENTS_BY_COUNTRY["Honduras"]=["Atlántida","Choluteca","Colón","Comayagua","Copán","Cortés","El Paraíso","Francisco Morazán","Gracias a Dios","Intibucá","Islas de la Bahía","La Paz","Lempira","Ocotepeque","Olancho","Santa Bárbara","Valle","Yoro"];
+DEPARTMENTS_BY_COUNTRY["Nicaragua"]=["Boaco","Carazo","Chinandega","Chontales","Estelí","Granada","Jinotega","León","Madriz","Managua","Masaya","Matagalpa","Nueva Segovia","Río San Juan","Rivas","Costa Caribe Norte","Costa Caribe Sur"];
+DEPARTMENTS_BY_COUNTRY["El Salvador"]=["Ahuachapán","Cabañas","Chalatenango","Cuscatlán","La Libertad","La Paz","La Unión","Morazán","San Miguel","San Salvador","San Vicente","Santa Ana","Sonsonate","Usulután"];
+DEPARTMENTS_BY_COUNTRY["Cuba"]=["Pinar del Río","Artemisa","La Habana","Mayabeque","Matanzas","Cienfuegos","Villa Clara","Sancti Spíritus","Ciego de Ávila","Camagüey","Las Tunas","Holguín","Granma","Santiago de Cuba","Guantánamo","Isla de la Juventud"];
+DEPARTMENTS_BY_COUNTRY["República Dominicana"]=["Azua","Bahoruco","Barahona","Dajabón","Distrito Nacional","Duarte","El Seibo","Elías Piña","Espaillat","Hato Mayor","Hermanas Mirabal","Independencia","La Altagracia","La Romana","La Vega","María Trinidad Sánchez","Monseñor Nouel","Monte Cristi","Monte Plata","Pedernales","Peravia","Puerto Plata","Samaná","San Cristóbal","San José de Ocoa","San Juan","San Pedro de Macorís","Sánchez Ramírez","Santiago","Santiago Rodríguez","Santo Domingo","Valverde"];
+DEPARTMENTS_BY_COUNTRY["España"]=["Andalucía","Aragón","Asturias","Baleares","Canarias","Cantabria","Castilla-La Mancha","Castilla y León","Cataluña","Extremadura","Galicia","Madrid","Murcia","Navarra","País Vasco","La Rioja","Comunidad Valenciana","Ceuta","Melilla"];
+DEPARTMENTS_BY_COUNTRY["Estados Unidos"]=["Alabama","Alaska","Arizona","Arkansas","California","Carolina del Norte","Carolina del Sur","Colorado","Connecticut","Dakota del Norte","Dakota del Sur","Delaware","Florida","Georgia","Hawái","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Luisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Misisipi","Misuri","Montana","Nebraska","Nevada","Nueva Jersey","Nueva York","Nuevo México","Ohio","Oklahoma","Oregón","Pensilvania","Rhode Island","Tennessee","Texas","Utah","Vermont","Virginia","Virginia Occidental","Washington","Wisconsin","Wyoming"];
 const $=id=>document.getElementById(id);
 const now=new Date(), pad=n=>String(n).padStart(2,"0");
 const monthNow=`${now.getFullYear()}-${pad(now.getMonth()+1)}`, dateNow=`${monthNow}-${pad(now.getDate())}`;
@@ -27,6 +57,26 @@ function initChecks(){
  $("morbidity").innerHTML=MORBIDITY.map(([k,l])=>`<label class="check"><input type="checkbox" name="morbidity" value="${k}"> ${l}</label>`).join("");
 }
 initChecks();
+
+/* ---------- País / Departamento (dependiente del país) ---------- */
+$("countryList").innerHTML=COUNTRIES.map(c=>`<option value="${escapeHtml(c)}">`).join("");
+function renderDepartmentField(selectedValue){
+ const country=$("country").value.trim()||DEFAULT_COUNTRY;
+ const list=DEPARTMENTS_BY_COUNTRY[country];
+ const wrap=$("departmentWrap");
+ if(list&&list.length){
+   wrap.innerHTML=`<select id="department"><option value="">Seleccionar...</option>${list.map(d=>`<option${d===selectedValue?" selected":""}>${escapeHtml(d)}</option>`).join("")}</select>`;
+   if(selectedValue&&!list.includes(selectedValue)){
+     // El valor guardado no está en la lista del país actual: lo agregamos igual para no perder el dato.
+     $("department").insertAdjacentHTML("beforeend",`<option selected>${escapeHtml(selectedValue)}</option>`);
+   }
+ }else{
+   wrap.innerHTML=`<input id="department" placeholder="Escribe el departamento / región" value="${escapeHtml(selectedValue||"")}">`;
+ }
+}
+$("country").addEventListener("input",()=>renderDepartmentField(""));
+$("country").value=DEFAULT_COUNTRY;
+renderDepartmentField("");
 
 function populateServices(){
  const list=SERVICES[$("type").value]||[];
@@ -84,10 +134,17 @@ async function bootApp(){
    await enterApp();
  }catch(e){showLogin()}
 }
+function setLoginLoading(loading){
+ $("loginSubmitBtn").disabled=loading;
+ $("loginSubmitBtn").classList.toggle("is-loading",loading);
+ $("loginSubmitLabel").textContent=loading?"Ingresando...":"Ingresar";
+ $("loginDni").disabled=loading;$("loginPassword").disabled=loading;
+}
 $("loginForm").onsubmit=async e=>{
  e.preventDefault();
  $("loginError").textContent="";
  const dni=$("loginDni").value.trim(), password=$("loginPassword").value;
+ setLoginLoading(true);
  try{
    const d=await api("/api/login",{method:"POST",body:{dni,password}});
    currentUserInfo=d.user;
@@ -96,6 +153,8 @@ $("loginForm").onsubmit=async e=>{
    if(currentUserInfo.mustChangePassword) toast("Recuerda cambiar tu contraseña inicial en '🔑 Contraseña'");
  }catch(err){
    $("loginError").textContent=err.message||"No se pudo iniciar sesión";
+ }finally{
+   setLoginLoading(false);
  }
 };
 $("logoutBtn").onclick=async ()=>{
@@ -108,6 +167,7 @@ $("logoutBtn").onclick=async ()=>{
 /* ------- Cambiar contraseña ------- */
 $("changePassBtn").onclick=()=>{
  $("changePasswordForm").reset();$("changePassError").textContent="";
+ $("changePassDniValue").textContent=currentUserInfo?currentUserInfo.dni:"—";
  $("changePasswordModal").classList.add("show");
 };
 $("closeChangePass").onclick=()=>$("changePasswordModal").classList.remove("show");
@@ -188,6 +248,7 @@ $("search").oninput=renderRecords;
 function ageLabel(r){
  if(r.ageValue===undefined||r.ageValue===null||r.ageValue==="")return"";
  const unit=r.ageUnit||"años";
+ if(unit==="días")return`${r.ageValue} ${r.ageValue===1?"día":"días"}`;
  if(unit==="meses")return`${r.ageValue} ${r.ageValue===1?"mes":"meses"}`;
  return`${r.ageValue} ${r.ageValue===1?"año":"años"}`;
 }
@@ -195,7 +256,8 @@ function ageInfo(r){
  if(r.ageValue===undefined||r.ageValue===null||r.ageValue==="")return null;
  const v=Number(r.ageValue);
  if(isNaN(v))return null;
- if((r.ageUnit||"años")==="meses")return{type:"m"};
+ // Los "días" y "meses" caen dentro del mismo grupo del informe: "0 a 11 meses".
+ if((r.ageUnit||"años")==="meses"||(r.ageUnit||"años")==="días")return{type:"m"};
  if(v<=0)return{type:"m"};
  const years=Math.round(v);
  if(years>MAX_AGE)return{type:"otros",value:years};
@@ -210,6 +272,10 @@ function computeAge(dobStr,refStr){
  if(years<1){
    let months=(ref.getFullYear()-dob.getFullYear())*12+(ref.getMonth()-dob.getMonth());
    if(ref.getDate()<dob.getDate())months--;
+   if(months<1){
+     const days=Math.round((ref-dob)/(1000*60*60*24));
+     return{value:Math.max(0,days),unit:"días"};
+   }
    return{value:Math.max(0,Math.min(months,11)),unit:"meses"};
  }
  return{value:years,unit:"años"};
@@ -231,7 +297,7 @@ function renderDashboard(){
   ["👥","Pacientes / atenciones",rs.length],["🏥","Consulta externa",external],["🛏️","Hospitalización",hosp],["📝","Entrevistas",sumAction(rs,"interview")]
  ].map(x=>`<div class="card"><div class="label">${x[0]} ${x[1]}</div><div class="value">${x[2]}</div></div>`).join("");
  $("dashCount").textContent=`${rs.length} registros`;
- const cols=["Atendidos","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv."];
+ const cols=["Atendidos","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
  let html="<thead><tr><th>Servicio</th>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr></thead><tbody>";
  for(const type of Object.keys(SERVICES)){
    for(const service of SERVICES[type]){
@@ -278,9 +344,14 @@ $("attentionForm").onsubmit=async e=>{
    ageValue:$("ageValue").value===""?"":Number($("ageValue").value),
    ageUnit:$("ageUnit").value,
    diagnosis:$("diagnosis").value.trim(),
+   country:$("country").value.trim()||DEFAULT_COUNTRY,
+   department:($("department")?$("department").value:"").trim(),
    province:$("province").value.trim(),
    district:$("district").value.trim(),
    patient:$("patient").value.trim(),
+   guardianName:$("guardianName").value.trim(),
+   guardianPhone:$("guardianPhone").value.trim(),
+   guardianDni:$("guardianDni").value.trim(),
    type:$("type").value,
    service:$("service").value,
    actions:[...document.querySelectorAll('input[name="action"]:checked')].map(x=>x.value),
@@ -298,6 +369,7 @@ $("attentionForm").onsubmit=async e=>{
 function resetForm(){
  $("attentionForm").reset();$("editId").value="";$("date").value=dateNow;$("formTitle").textContent="Registrar atención";
  $("service").innerHTML='<option value="">Selecciona primero el tipo</option>';
+ $("country").value=DEFAULT_COUNTRY;renderDepartmentField("");
 }
 $("cancelEdit").onclick=()=>{resetForm();showView("records")};
 
@@ -308,6 +380,8 @@ window.editRecord=id=>{
  $("name").value=r.name||"";$("dni").value=r.dni||"";$("bed").value=r.bed||"";
  $("birthDate").value=r.birthDate||"";$("ageValue").value=r.ageValue??"";$("ageUnit").value=r.ageUnit||"años";
  $("diagnosis").value=r.diagnosis||"";$("province").value=r.province||"";$("district").value=r.district||"";$("patient").value=r.patient||"";
+ $("country").value=r.country||DEFAULT_COUNTRY;renderDepartmentField(r.department||"");
+ $("guardianName").value=r.guardianName||"";$("guardianPhone").value=r.guardianPhone||"";$("guardianDni").value=r.guardianDni||"";
  $("type").value=r.type;populateServices();$("service").value=r.service;$("formTitle").textContent="Editar atención";
  document.querySelectorAll('input[name="action"]').forEach(x=>x.checked=r.actions.includes(x.value));
  document.querySelectorAll('input[name="morbidity"]').forEach(x=>x.checked=r.morbidity.includes(x.value));
@@ -324,7 +398,7 @@ window.deleteRecord=async id=>{
 /* ---------- Informe mensual ---------- */
 function reportTable(type,rs){
  const services=SERVICES[type];
- const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv."];
+ const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
  let h=`<table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
  let totals=Array(headers.length-1).fill(0);
  for(const service of services){
@@ -334,7 +408,7 @@ function reportTable(type,rs){
    h+=`<tr><td>${service}</td>${vals.map(v=>`<td>${v||""}</td>`).join("")}</tr>`;
  }
  h+=`<tr class="subtotal"><td>SUBTOTAL ${type==="Consulta externa"?"1":"2"}</td>${totals.map(v=>`<td>${v||""}</td>`).join("")}</tr></tbody></table>`;
- return {html:h,totals};
+ return {html:`<div class="report-table-wrap">${h}</div>`,totals};
 }
 
 function buildAgeRows(rs){
@@ -375,7 +449,7 @@ function renderReport(){
  const label=d.toLocaleDateString("es-PE",{month:"long",year:"numeric"}).toUpperCase();
  const a=reportTable("Consulta externa",rs), b=reportTable("Hospitalización",rs);
  const grand=a.totals.map((v,i)=>v+b.totals[i]);
- const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv."];
+ const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
  const {rows:ageRows,otrosCount,otrosAges}=buildAgeRows(rs);
  const diagRows=groupCount(rs,"diagnosis");
  const provinceRows=groupCount(rs,"province");
@@ -389,7 +463,7 @@ function renderReport(){
  <h4>CONSULTA EXTERNA</h4>${a.html}
  <h4>HOSPITALIZACIÓN</h4>${b.html}
  <h4>TOTAL GENERAL (Subtotal 1 + Subtotal 2)</h4>
- <table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody><tr class="grand"><td>TOTAL GENERAL</td>${grand.map(v=>`<td>${v||""}</td>`).join("")}</tr></tbody></table>
+ <div class="report-table-wrap"><table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody><tr class="grand"><td>TOTAL GENERAL</td>${grand.map(v=>`<td>${v||""}</td>`).join("")}</tr></tbody></table></div>
  <div class="report-page2">
    <h4>POBLACIÓN ATENDIDA POR EDAD</h4>
    <div class="age-grid">${ageRows.map(([l,c])=>`<div class="age-cell"><span>${l}</span><b>${c||""}</b></div>`).join("")}</div>
@@ -508,9 +582,14 @@ function recordToRow(r){
    "Unidad edad":r.ageUnit||"",
    "N° de cama":r.bed||"",
    "Diagnóstico":r.diagnosis||"",
+   "País":r.country||"",
+   "Departamento":r.department||"",
    "Provincia":r.province||"",
    "Distrito":r.district||"",
    "Código / N° historia":r.patient||"",
+   "Familiar responsable":r.guardianName||"",
+   "Teléfono familiar responsable":r.guardianPhone||"",
+   "DNI familiar responsable":r.guardianDni||"",
    "Tipo de atención":r.type,
    "Servicio":r.service
  };
@@ -536,9 +615,14 @@ function rowToRecord(row){
    ageUnit:get("Unidad edad")||"años",
    bed:get("N° de cama"),
    diagnosis:get("Diagnóstico"),
+   country:get("País")||DEFAULT_COUNTRY,
+   department:get("Departamento"),
    province:get("Provincia")||get("Procedencia"),
    district:get("Distrito"),
    patient:get("Código / N° historia"),
+   guardianName:get("Familiar responsable"),
+   guardianPhone:get("Teléfono familiar responsable"),
+   guardianDni:get("DNI familiar responsable"),
    type:get("Tipo de atención"),
    service:get("Servicio"),
    actions:ACTIONS.filter(([k,l])=>row[l]==="Sí").map(([k])=>k),

@@ -20,7 +20,10 @@
       </label>
       <p class="muted">Al ingresar por primera vez, tu contraseña es tu mismo DNI. Podrás cambiarla luego desde "🔑 Contraseña".</p>
       <div id="loginError" class="login-error"></div>
-      <button class="primary full" type="submit">Ingresar</button>
+      <button class="primary full" type="submit" id="loginSubmitBtn">
+        <span class="btn-spinner" id="loginSpinner"></span>
+        <span id="loginSubmitLabel">Ingresar</span>
+      </button>
     </form>
   </div>
 
@@ -115,11 +118,18 @@
                 <select id="ageUnit">
                   <option value="años">años</option>
                   <option value="meses">meses</option>
+                  <option value="días">días</option>
                 </select>
               </div>
             </label>
             <label>Diagnóstico
               <input id="diagnosis" list="diagnosisList" placeholder="Escribe o elige de la lista">
+            </label>
+            <label>País
+              <input id="country" list="countryList" placeholder="Escribe o elige de la lista">
+            </label>
+            <label>Departamento / Región
+              <span id="departmentWrap"></span>
             </label>
             <label>Provincia
               <input id="province" placeholder="Ej. Lima">
@@ -129,6 +139,19 @@
             </label>
             <label>Código / N° de historia
               <input id="patient" placeholder="Opcional">
+            </label>
+          </div>
+
+          <h3>Familiar responsable</h3>
+          <div class="form-grid">
+            <label>Nombre del familiar responsable
+              <input id="guardianName" placeholder="Nombres y apellidos">
+            </label>
+            <label>Teléfono del familiar responsable
+              <input id="guardianPhone" placeholder="Ej. 987654321" inputmode="tel">
+            </label>
+            <label>DNI del familiar responsable
+              <input id="guardianDni" placeholder="N° de documento" inputmode="numeric" maxlength="15">
             </label>
           </div>
 
@@ -230,6 +253,7 @@
         <h2>🔑 Cambiar contraseña</h2>
         <button class="icon-btn" id="closeChangePass" type="button" aria-label="Cerrar">✖</button>
       </div>
+      <p class="muted" id="changePassDniNote">Tu usuario (DNI) no cambia: <strong id="changePassDniValue">—</strong>. Solo se actualizará tu contraseña.</p>
       <form id="changePasswordForm">
         <label>Contraseña actual
           <input type="password" id="currentPassword" required autocomplete="current-password">
@@ -354,6 +378,8 @@
     <option value="Peritonitis">
     <option value="Traumatismo encéfalo craneano (TEC)">
   </datalist>
+
+  <datalist id="countryList"></datalist>
 
   <div id="toast"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
