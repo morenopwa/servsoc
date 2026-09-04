@@ -60,7 +60,13 @@ initChecks();
 
 /* ---------- País / Departamento (dependiente del país) ---------- */
 $("countryList").innerHTML=COUNTRIES.map(c=>`<option value="${escapeHtml(c)}">`).join("");
-function renderDepartmentField(selectedValue){
+function currentPeruUbigeo(){
+ const country=($("country").value||"").trim()||DEFAULT_COUNTRY;
+ const dep=$("department")?$("department").value:"";
+ if(country!=="Perú"||typeof PERU_UBIGEO==="undefined"||!PERU_UBIGEO[dep])return null;
+ return PERU_UBIGEO[dep];
+}
+function renderDepartmentField(selectedValue,nextProvince,nextDistrict){
  const country=$("country").value.trim()||DEFAULT_COUNTRY;
  const list=DEPARTMENTS_BY_COUNTRY[country];
  const wrap=$("departmentWrap");
@@ -73,8 +79,39 @@ function renderDepartmentField(selectedValue){
  }else{
    wrap.innerHTML=`<input id="department" placeholder="Escribe el departamento / región" value="${escapeHtml(selectedValue||"")}">`;
  }
+ renderProvinceField(nextProvince||"",nextDistrict||"");
+}
+function renderProvinceField(selectedValue,nextDistrict){
+ const ubigeo=currentPeruUbigeo();
+ const wrap=$("provinceWrap");
+ if(ubigeo){
+   const provinces=Object.keys(ubigeo);
+   wrap.innerHTML=`<select id="province"><option value="">Seleccionar...</option>${provinces.map(p=>`<option${p===selectedValue?" selected":""}>${escapeHtml(p)}</option>`).join("")}</select>`;
+   if(selectedValue&&!provinces.includes(selectedValue)){
+     $("province").insertAdjacentHTML("beforeend",`<option selected>${escapeHtml(selectedValue)}</option>`);
+   }
+ }else{
+   wrap.innerHTML=`<input id="province" placeholder="Ej. Lima" value="${escapeHtml(selectedValue||"")}">`;
+ }
+ renderDistrictField(nextDistrict||"");
+}
+function renderDistrictField(selectedValue){
+ const ubigeo=currentPeruUbigeo();
+ const province=$("province")?$("province").value:"";
+ const districts=(ubigeo&&ubigeo[province])||null;
+ const wrap=$("districtWrap");
+ if(districts&&districts.length){
+   wrap.innerHTML=`<select id="district"><option value="">Seleccionar...</option>${districts.map(d=>`<option${d===selectedValue?" selected":""}>${escapeHtml(d)}</option>`).join("")}</select>`;
+   if(selectedValue&&!districts.includes(selectedValue)){
+     $("district").insertAdjacentHTML("beforeend",`<option selected>${escapeHtml(selectedValue)}</option>`);
+   }
+ }else{
+   wrap.innerHTML=`<input id="district" placeholder="Ej. San Martín de Porres" value="${escapeHtml(selectedValue||"")}">`;
+ }
 }
 $("country").addEventListener("input",()=>renderDepartmentField(""));
+$("departmentWrap").addEventListener("change",()=>renderProvinceField(""));
+$("provinceWrap").addEventListener("change",()=>renderDistrictField(""));
 $("country").value=DEFAULT_COUNTRY;
 renderDepartmentField("");
 
@@ -380,7 +417,7 @@ window.editRecord=id=>{
  $("name").value=r.name||"";$("dni").value=r.dni||"";$("bed").value=r.bed||"";
  $("birthDate").value=r.birthDate||"";$("ageValue").value=r.ageValue??"";$("ageUnit").value=r.ageUnit||"años";
  $("diagnosis").value=r.diagnosis||"";$("province").value=r.province||"";$("district").value=r.district||"";$("patient").value=r.patient||"";
- $("country").value=r.country||DEFAULT_COUNTRY;renderDepartmentField(r.department||"");
+ $("country").value=r.country||DEFAULT_COUNTRY;renderDepartmentField(r.department||"",r.province||"",r.district||"");
  $("guardianName").value=r.guardianName||"";$("guardianPhone").value=r.guardianPhone||"";$("guardianDni").value=r.guardianDni||"";
  $("type").value=r.type;populateServices();$("service").value=r.service;$("formTitle").textContent="Editar atención";
  document.querySelectorAll('input[name="action"]').forEach(x=>x.checked=r.actions.includes(x.value));
@@ -493,7 +530,18 @@ setPageOrientation($("printOrientation").value);
 $("printReport").onclick=()=>{setPageOrientation($("printOrientation").value);window.print()};
 $("pdfReport").onclick=()=>saveAsPdf($("reportContent"),`informe-mensual-${$("reportMonth").value}.pdf`,$("printOrientation").value);
 
-/* ---------- Acta de entrega ---------- */
+/* ---------- Acta de entrega de menor ---------- */
+const MONTHS_ES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","setiembre","octubre","noviembre","diciembre"];
+function formatDateLong(dateStr,opts={}){
+ if(!dateStr)return"";
+ const d=new Date(dateStr+"T12:00:00");
+ if(isNaN(d))return"";
+ const day=d.getDate();
+ let month=MONTHS_ES[d.getMonth()];
+ if(opts.capitalizeMonth)month=month.charAt(0).toUpperCase()+month.slice(1);
+ const year=d.getFullYear();
+ return opts.noDeYear?`${day} de ${month} ${year}`:`${day} de ${month} de ${year}`;
+}
 let actaCurrentId="";
 function fillActaSelect(){
  $("actaRecordSelect").innerHTML='<option value="">-- Seleccionar --</option>'+
@@ -502,21 +550,50 @@ function fillActaSelect(){
 }
 function fillActaFromRecord(id){
  const r=records.find(x=>x.id===id);
- $("actaName").value=r?.name||"";
- $("actaDni").value=r?.dni||"";
- $("actaBed").value=r?.bed||"";
- $("actaBirthDate").value=r?.birthDate||"";
- $("actaAge").value=r?ageLabel(r):"";
- $("actaDiagnosis").value=r?.diagnosis||"";
- $("actaProvince").value=r?.province||"";
- $("actaDistrict").value=r?.district||"";
- const acta=r?.acta||{};
- $("actaDeliveryDate").value=acta.deliveryDate||dateNow;
- $("actaDetails").value=acta.details||"";
- $("actaObservations").value=acta.observations||"";
- $("actaDeliveredBy").value=acta.deliveredBy||"";
- $("actaReceivedBy").value=acta.receivedBy||"";
+ const acta=(r&&r.acta)||{};
+ $("actaMenorNombre").value=acta.menorNombre??(r?.name||"");
+ $("actaMenorEdad").value=acta.menorEdad??(r?ageLabel(r):"");
+ $("actaFechaAtencion").value=acta.fechaAtencion??(r?.date||"");
+ $("actaServicio").value=acta.servicio??(r?.service||"");
+ $("actaCama").value=acta.cama??(r?.bed||"");
+ $("actaHistoria").value=acta.historia??(r?.patient||"");
+ $("actaResponsableNombre").value=acta.responsableNombre??(r?.guardianName||"");
+ $("actaResponsableEdad").value=acta.responsableEdad??"";
+ $("actaResponsableDni").value=acta.responsableDni??(r?.guardianDni||"");
+ $("actaLugar").value=acta.lugar??"S.M.P.";
+ $("actaFechaFirma").value=acta.fechaFirma??dateNow;
+ renderActaText();
 }
+function renderActaText(){
+ const menorNombre=$("actaMenorNombre").value.trim();
+ const menorEdad=$("actaMenorEdad").value.trim();
+ const fechaAtencionTxt=formatDateLong($("actaFechaAtencion").value)||"____________";
+ const servicio=$("actaServicio").value.trim();
+ const cama=$("actaCama").value.trim();
+ const historia=$("actaHistoria").value.trim();
+ const responsableNombre=$("actaResponsableNombre").value.trim();
+ const responsableEdad=$("actaResponsableEdad").value.trim();
+ const responsableDni=$("actaResponsableDni").value.trim();
+ const lugar=$("actaLugar").value.trim()||"S.M.P.";
+ const fechaFirmaTxt=formatDateLong($("actaFechaFirma").value,{capitalizeMonth:true,noDeYear:true});
+
+ $("actaHeaderName").textContent=menorNombre||"\u00A0";
+ $("actaParrafo1").textContent=
+   `En la fecha, ${fechaAtencionTxt}, se apersona a la oficina de servicio social del Hospital `+
+   `Nacional Cayetano Heredia el(la) señor(a) de ${responsableEdad||"____"} de edad, identificada con `+
+   `DNI ${responsableDni||"____________"}; viene a solicitar la entrega de su menor hijo(a) `+
+   `${menorNombre||"____________"} de ${menorEdad||"____"} de edad, internada en el servicio de `+
+   `${servicio||"____________"}, cama ${cama||"______"} de nuestro hospital, con historia clínica `+
+   `N.º ${historia||"____________"}.`;
+ $("actaParrafo2").textContent=
+   `Se elabora la presente acta en salvaguarda de la integridad física, psicológica y moral de la `+
+   `menor, a cargo de la persona responsable ${responsableNombre||"____________"}.`;
+ $("actaFechaLugarTexto").textContent=fechaFirmaTxt?`${lugar} ${fechaFirmaTxt}`:lugar;
+ $("actaFirmaNombre").textContent=responsableNombre||"(Nombre del familiar responsable)";
+ $("actaFirmaDni").textContent=responsableDni?`DNI: ${responsableDni}`:"DNI: —";
+}
+document.querySelector(".acta-edit-grid").addEventListener("input",renderActaText);
+document.querySelector(".acta-edit-grid").addEventListener("change",renderActaText);
 window.openActa=async (id="")=>{
  await loadRecords();
  fillActaSelect();
@@ -535,19 +612,18 @@ $("actaSaveBtn").onclick=async ()=>{
  if(!existing){toast("Registro no encontrado");return}
  const updated={
    ...existing,
-   name:$("actaName").value.trim()||existing.name,
-   dni:$("actaDni").value.trim()||existing.dni,
-   bed:$("actaBed").value.trim()||existing.bed,
-   birthDate:$("actaBirthDate").value||existing.birthDate,
-   diagnosis:$("actaDiagnosis").value.trim()||existing.diagnosis,
-   province:$("actaProvince").value.trim()||existing.province,
-   district:$("actaDistrict").value.trim()||existing.district,
    acta:{
-     deliveryDate:$("actaDeliveryDate").value,
-     details:$("actaDetails").value.trim(),
-     observations:$("actaObservations").value.trim(),
-     deliveredBy:$("actaDeliveredBy").value.trim(),
-     receivedBy:$("actaReceivedBy").value.trim()
+     menorNombre:$("actaMenorNombre").value.trim(),
+     menorEdad:$("actaMenorEdad").value.trim(),
+     fechaAtencion:$("actaFechaAtencion").value,
+     servicio:$("actaServicio").value.trim(),
+     cama:$("actaCama").value.trim(),
+     historia:$("actaHistoria").value.trim(),
+     responsableNombre:$("actaResponsableNombre").value.trim(),
+     responsableEdad:$("actaResponsableEdad").value.trim(),
+     responsableDni:$("actaResponsableDni").value.trim(),
+     lugar:$("actaLugar").value.trim()||"S.M.P.",
+     fechaFirma:$("actaFechaFirma").value
    }
  };
  try{
@@ -566,8 +642,8 @@ window.addEventListener("afterprint",()=>{
  if($("report").classList.contains("active")) setPageOrientation($("printOrientation").value);
 });
 $("actaPdfBtn").onclick=()=>{
- const name=($("actaName").value||"paciente").trim().replace(/\s+/g,"_")||"paciente";
- saveAsPdf($("actaPrintArea"),`acta-entrega-${name}.pdf`,"portrait");
+ const name=($("actaMenorNombre").value||"paciente").trim().replace(/\s+/g,"_")||"paciente";
+ saveAsPdf($("actaPrintArea"),`acta-entrega-menor-${name}.pdf`,"portrait");
 };
 
 /* ---------- Respaldo en Excel ---------- */
@@ -595,16 +671,22 @@ function recordToRow(r){
  };
  ACTIONS.forEach(([k,l])=>row[l]=r.actions.includes(k)?"Sí":"");
  MORBIDITY.forEach(([k,l])=>row[l]=r.morbidity.includes(k)?"Sí":"");
- row["Acta - Fecha entrega"]=r.acta?.deliveryDate||"";
- row["Acta - Detalle"]=r.acta?.details||"";
- row["Acta - Observaciones"]=r.acta?.observations||"";
- row["Acta - Entregado por"]=r.acta?.deliveredBy||"";
- row["Acta - Recibido por"]=r.acta?.receivedBy||"";
+ row["Acta - Menor (nombre)"]=r.acta?.menorNombre||"";
+ row["Acta - Menor (edad)"]=r.acta?.menorEdad||"";
+ row["Acta - Fecha de atención"]=r.acta?.fechaAtencion||"";
+ row["Acta - Servicio"]=r.acta?.servicio||"";
+ row["Acta - Cama"]=r.acta?.cama||"";
+ row["Acta - Historia clínica"]=r.acta?.historia||"";
+ row["Acta - Responsable (nombre)"]=r.acta?.responsableNombre||"";
+ row["Acta - Responsable (edad)"]=r.acta?.responsableEdad||"";
+ row["Acta - Responsable (DNI)"]=r.acta?.responsableDni||"";
+ row["Acta - Lugar"]=r.acta?.lugar||"";
+ row["Acta - Fecha del acta"]=r.acta?.fechaFirma||"";
  return row;
 }
 function rowToRecord(row){
  const get=k=>row[k]===undefined||row[k]===null?"":String(row[k]);
- const actaHasData=["Acta - Fecha entrega","Acta - Detalle","Acta - Observaciones","Acta - Entregado por","Acta - Recibido por"].some(k=>get(k));
+ const actaHasData=["Acta - Menor (nombre)","Acta - Responsable (nombre)","Acta - Fecha del acta"].some(k=>get(k));
  return{
    id:get("ID")||crypto.randomUUID(),
    date:get("Fecha"),
@@ -628,11 +710,17 @@ function rowToRecord(row){
    actions:ACTIONS.filter(([k,l])=>row[l]==="Sí").map(([k])=>k),
    morbidity:MORBIDITY.filter(([k,l])=>row[l]==="Sí").map(([k])=>k),
    acta:actaHasData?{
-     deliveryDate:get("Acta - Fecha entrega"),
-     details:get("Acta - Detalle"),
-     observations:get("Acta - Observaciones"),
-     deliveredBy:get("Acta - Entregado por"),
-     receivedBy:get("Acta - Recibido por")
+     menorNombre:get("Acta - Menor (nombre)"),
+     menorEdad:get("Acta - Menor (edad)"),
+     fechaAtencion:get("Acta - Fecha de atención"),
+     servicio:get("Acta - Servicio"),
+     cama:get("Acta - Cama"),
+     historia:get("Acta - Historia clínica"),
+     responsableNombre:get("Acta - Responsable (nombre)"),
+     responsableEdad:get("Acta - Responsable (edad)"),
+     responsableDni:get("Acta - Responsable (DNI)"),
+     lugar:get("Acta - Lugar"),
+     fechaFirma:get("Acta - Fecha del acta")
    }:null
  };
 }

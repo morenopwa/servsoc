@@ -190,11 +190,17 @@ function sanitizeRecord(r) {
     actions: Array.isArray(r.actions) ? r.actions.filter(x => typeof x === 'string').slice(0, 50) : [],
     morbidity: Array.isArray(r.morbidity) ? r.morbidity.filter(x => typeof x === 'string').slice(0, 50) : [],
     acta: (r.acta && typeof r.acta === 'object') ? {
-      deliveryDate: s(r.acta.deliveryDate, 10),
-      details: s(r.acta.details, 3000),
-      observations: s(r.acta.observations, 3000),
-      deliveredBy: s(r.acta.deliveredBy, 150),
-      receivedBy: s(r.acta.receivedBy, 150),
+      menorNombre: s(r.acta.menorNombre, 150),
+      menorEdad: s(r.acta.menorEdad, 40),
+      fechaAtencion: s(r.acta.fechaAtencion, 10),
+      servicio: s(r.acta.servicio, 60),
+      cama: s(r.acta.cama, 30),
+      historia: s(r.acta.historia, 60),
+      responsableNombre: s(r.acta.responsableNombre, 150),
+      responsableEdad: s(r.acta.responsableEdad, 40),
+      responsableDni: s(r.acta.responsableDni, 20),
+      lugar: s(r.acta.lugar, 40),
+      fechaFirma: s(r.acta.fechaFirma, 10),
       updatedAt: new Date().toISOString()
     } : null
   };

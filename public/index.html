@@ -132,10 +132,10 @@
               <span id="departmentWrap"></span>
             </label>
             <label>Provincia
-              <input id="province" placeholder="Ej. Lima">
+              <span id="provinceWrap"></span>
             </label>
             <label>Distrito
-              <input id="district" placeholder="Ej. San Martín de Porres">
+              <span id="districtWrap"></span>
             </label>
             <label>Código / N° de historia
               <input id="patient" placeholder="Opcional">
@@ -273,47 +273,67 @@
   </div>
 
   <div id="actaModal" class="modal-overlay">
-    <div class="modal-box">
+    <div class="modal-box" style="max-width:820px">
       <div class="modal-head no-print">
-        <h2>📄 Acta de entrega</h2>
+        <h2>📄 Acta de entrega de menor</h2>
         <button class="icon-btn" id="closeActa" type="button" aria-label="Cerrar">✖</button>
       </div>
       <div class="no-print acta-link">
         <label>Vincular a una atención registrada
           <select id="actaRecordSelect"><option value="">-- Seleccionar --</option></select>
         </label>
-        <p class="muted">Selecciona una atención para completar automáticamente los datos del paciente. Puedes editar o agregar lo que falte antes de guardar o imprimir.</p>
+        <p class="muted">Selecciona una atención para completar automáticamente los datos. Revisa y completa lo que falte (sobre todo los datos del familiar responsable) antes de guardar o imprimir.</p>
+      </div>
+
+      <div class="no-print acta-edit-grid">
+        <label>Nombre del(la) menor / paciente
+          <input id="actaMenorNombre">
+        </label>
+        <label>Edad del(la) menor
+          <input id="actaMenorEdad" placeholder="Ej. 5 años">
+        </label>
+        <label>Fecha de atención
+          <input type="date" id="actaFechaAtencion">
+        </label>
+        <label>Servicio
+          <input id="actaServicio">
+        </label>
+        <label>N° de cama
+          <input id="actaCama">
+        </label>
+        <label>N° de historia clínica
+          <input id="actaHistoria">
+        </label>
+        <label>Nombre del familiar responsable
+          <input id="actaResponsableNombre">
+        </label>
+        <label>Edad del familiar responsable
+          <input id="actaResponsableEdad" placeholder="Ej. 32 años">
+        </label>
+        <label>DNI del familiar responsable
+          <input id="actaResponsableDni">
+        </label>
+        <label>Lugar (para la fecha final)
+          <input id="actaLugar" placeholder="Ej. S.M.P.">
+        </label>
+        <label>Fecha del acta
+          <input type="date" id="actaFechaFirma">
+        </label>
       </div>
 
       <div id="actaPrintArea">
         <div class="report-title">
-          <h2>ACTA DE ENTREGA</h2>
-          <h3>DEPARTAMENTO DE SERVICIO SOCIAL</h3>
+          <h2>ACTA DE ENTREGA DE MENOR</h2>
         </div>
-        <div class="form-grid">
-          <label>Nombre completo <input id="actaName"></label>
-          <label>DNI <input id="actaDni"></label>
-          <label>N° de cama <input id="actaBed"></label>
-          <label>Fecha de nacimiento <input type="date" id="actaBirthDate"></label>
-          <label>Edad <input id="actaAge" placeholder="Ej. 34 años"></label>
-          <label>Diagnóstico <input id="actaDiagnosis" list="diagnosisList"></label>
-          <label>Provincia <input id="actaProvince"></label>
-          <label>Distrito <input id="actaDistrict"></label>
-          <label>Fecha de entrega <input type="date" id="actaDeliveryDate"></label>
-        </div>
-        <label>Detalle de lo entregado / gestión realizada
-          <textarea id="actaDetails" rows="4" placeholder="Describe lo entregado o la gestión realizada"></textarea>
-        </label>
-        <label>Observaciones
-          <textarea id="actaObservations" rows="3"></textarea>
-        </label>
-        <div class="form-grid">
-          <label>Entregado por (Servicio Social) <input id="actaDeliveredBy"></label>
-          <label>Recibido por (paciente / familiar) <input id="actaReceivedBy"></label>
-        </div>
-        <div class="signatures">
-          <div class="sign-box"><span>Firma - Entregado por</span></div>
-          <div class="sign-box"><span>Firma - Recibido por</span></div>
+        <p class="acta-header-name" id="actaHeaderName">&nbsp;</p>
+        <p class="acta-paragraph" id="actaParrafo1"></p>
+        <p class="acta-paragraph">La menor se encuentra en situación de alta médica según historia clínica.</p>
+        <p class="acta-paragraph" id="actaParrafo2"></p>
+        <div class="acta-signoff">
+          <div class="acta-signoff-left" id="actaFechaLugarTexto">&nbsp;</div>
+          <div class="acta-signoff-right">
+            <div class="sign-box"><span id="actaFirmaNombre">&nbsp;</span><small id="actaFirmaDni">&nbsp;</small></div>
+          </div>
         </div>
       </div>
 
@@ -384,6 +404,7 @@
   <div id="toast"></div>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.9.3/html2pdf.bundle.min.js"></script>
+  <script src="ubigeo-peru.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
