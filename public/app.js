@@ -354,8 +354,10 @@ $("birthDate").addEventListener("change",()=>{
 /* ---------- Listados / dashboard ---------- */
 function filtered(month){return records.filter(r=>monthOf(r)===month)}
 function sumAction(rs,key){return rs.filter(r=>r.actions.includes(key)).length}
+function sumMorbidity(rs,key){return rs.filter(r=>r.morbidity.includes(key)).length}
 function sumManagementCount(rs){return rs.reduce((acc,r)=>acc+(Number(r.managementCount)||0),0)}
 function actionCount(rs,key){return key==="management"?sumManagementCount(rs):sumAction(rs,key)}
+function actionsTotal(rs){return ACTIONS.reduce((acc,[k])=>acc+actionCount(rs,k),0)}
 
 function renderDashboard(){
  const rs=filtered($("dashMonth").value);
@@ -370,7 +372,7 @@ function renderDashboard(){
    for(const service of SERVICES[type]){
      const s=rs.filter(r=>r.type===type&&r.service===service);
      if(!s.length) continue;
-     const vals=[s.length,s.length,...ACTIONS.map(([k])=>actionCount(s,k)),...MORBIDITY.map(([k])=>sumAction(s,k))];
+     const vals=[s.length,actionsTotal(s),...ACTIONS.map(([k])=>actionCount(s,k)),...MORBIDITY.map(([k])=>sumMorbidity(s,k))];
      html+=`<tr><td>${type} · ${service}</td>${vals.map(v=>`<td>${v||""}</td>`).join("")}</tr>`;
    }
  }
@@ -479,7 +481,7 @@ function reportTable(type,rs){
  let totals=Array(headers.length-1).fill(0);
  for(const service of services){
    const s=rs.filter(r=>r.type===type&&r.service===service);
-   const vals=[s.length,s.length,...ACTIONS.map(([k])=>actionCount(s,k)),...MORBIDITY.map(([k])=>sumAction(s,k))];
+   const vals=[s.length,actionsTotal(s),...ACTIONS.map(([k])=>actionCount(s,k)),...MORBIDITY.map(([k])=>sumMorbidity(s,k))];
    vals.forEach((v,i)=>totals[i]+=v);
    h+=`<tr><td>${service}</td>${vals.map(v=>`<td>${v||""}</td>`).join("")}</tr>`;
  }

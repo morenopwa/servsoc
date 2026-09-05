@@ -100,9 +100,9 @@ td:first-child,th:first-child{text-align:left}
 .report-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:4px;border-radius:6px}
 .report-table-wrap::-webkit-scrollbar{height:9px}
 .report-table-wrap::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:6px}
-.report-table{font-size:9px;width:100%;min-width:760px;border:1px solid #94a3b8}
-.report-table th,.report-table td{padding:5px 3px;white-space:normal;line-height:1.1;border:1px solid #94a3b8}
-.report-table th{font-size:8px}
+.report-table{font-size:9px;width:100%;min-width:820px;border:1px solid #94a3b8}
+.report-table th,.report-table td{padding:5px 3px;white-space:normal;line-height:1.25;border:1px solid #94a3b8}
+.report-table th{font-size:10.5px;font-weight:800;background:#eef2f7;letter-spacing:.2px}
 .subtotal td{font-weight:800;background:#f1f5f9}
 .grand td{font-weight:900;background:#e2e8f0}
 .section-label{writing-mode:vertical-rl;transform:rotate(180deg);font-weight:900;letter-spacing:1px;width:18px}
@@ -182,7 +182,7 @@ td:first-child,th:first-child{text-align:left}
   .main{margin:0;padding:0}
   .panel{border:0;box-shadow:none;padding:0}
   .report-table{font-size:10px}
-  .report-table th{font-size:9.5px}
+  .report-table th{font-size:10.5px;font-weight:800}
   .report-table th,.report-table td{padding:5px 4px}
   .report-panel{display:block!important}
   .report-table-wrap{overflow:visible}
@@ -204,10 +204,11 @@ td:first-child,th:first-child{text-align:left}
 }
 @media print and (orientation:portrait){
   .report-table{font-size:7.5px}
-  .report-table th{font-size:7px}
+  .report-table th{font-size:8px;font-weight:800}
   .age-grid{column-count:2}
 }
 @media print and (orientation:landscape){
   .report-table{font-size:10px}
+  .report-table th{font-size:11px;font-weight:800}
   .age-grid{column-count:4}
 }
