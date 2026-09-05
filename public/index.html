@@ -31,7 +31,10 @@
   <aside class="sidebar">
     <div class="brand">
       <div class="brand-icon">SS</div>
-      <div><strong>Servicio Social</strong><small>Control de Atenciones</small></div>
+      <div>
+        <strong>Servicio Social</strong>
+        <small id="userNameLabel">—</small>
+      </div>
     </div>
     <nav>
       <button class="nav-btn active" data-view="dashboard">📊 Resumen</button>
@@ -41,16 +44,8 @@
       <button class="nav-btn admin-only" data-view="users" style="display:none">🛡️ Usuarios</button>
     </nav>
     <div class="side-footer">
-      <div class="user-box">
-        <div class="user-name" id="userNameLabel">—</div>
-        <div class="user-role muted" id="userRoleLabel">—</div>
-        <button class="secondary full" id="changePassBtn" type="button">🔑 Contraseña</button>
-        <button class="secondary full" id="logoutBtn" type="button">🚪 Salir</button>
-      </div>
-      <button id="backupBtn" class="secondary full">💾 Exportar respaldo (Excel)</button>
-      <label class="secondary full file-label admin-only" style="display:none">↩️ Importar respaldo (Excel)
-        <input id="restoreInput" type="file" accept=".xlsx,.xls,.json">
-      </label>
+      <button class="secondary full" id="userMenuBtn" type="button">👤 Mi cuenta</button>
+      <button class="secondary full" id="logoutBtn" type="button">🚪 Salir</button>
     </div>
   </aside>
 
@@ -244,8 +239,40 @@
           <table id="usersTable"></table>
         </div>
       </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2>Respaldo de datos</h2>
+            <p class="muted">Restaura atenciones desde un archivo de respaldo (Excel o JSON). Esto solo lo puede hacer un administrador.</p>
+          </div>
+        </div>
+        <label class="secondary file-label" style="display:inline-flex">↩️ Importar respaldo (Excel)
+          <input id="restoreInput" type="file" accept=".xlsx,.xls,.json">
+        </label>
+      </div>
     </section>
   </main>
+
+  <div id="accountModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:420px">
+      <div class="modal-head">
+        <h2>👤 Mi cuenta</h2>
+        <button class="icon-btn" id="closeAccount" type="button" aria-label="Cerrar">✖</button>
+      </div>
+      <form id="accountForm">
+        <label>Nombre completo
+          <input id="accountName" required maxlength="150">
+        </label>
+        <p class="muted">Tu usuario (DNI) no se puede cambiar: <strong id="accountDniValue">—</strong></p>
+        <div id="accountError" class="login-error"></div>
+        <button class="primary full" type="submit">💾 Guardar cambios</button>
+      </form>
+      <div class="account-menu">
+        <button class="secondary full" id="accountChangePassBtn" type="button">🔑 Cambiar contraseña</button>
+        <button class="secondary full" id="backupBtn" type="button">💾 Exportar respaldo (Excel)</button>
+      </div>
+    </div>
+  </div>
 
   <div id="changePasswordModal" class="modal-overlay">
     <div class="modal-box" style="max-width:420px">
@@ -347,58 +374,58 @@
   </div><!-- /#appRoot -->
 
   <datalist id="diagnosisList">
-    <option value="Diabetes mellitus tipo 2">
-    <option value="Hipertensión arterial">
-    <option value="Neumonía">
-    <option value="Tuberculosis pulmonar">
-    <option value="Enfermedad renal crónica">
-    <option value="Enfermedad renal crónica en hemodiálisis">
-    <option value="Infección del tracto urinario">
-    <option value="VIH/SIDA">
-    <option value="Dengue">
-    <option value="Malaria">
-    <option value="Leishmaniasis cutánea">
-    <option value="Hepatitis viral">
-    <option value="Cirrosis hepática">
-    <option value="Apendicitis aguda">
-    <option value="Colecistitis aguda">
-    <option value="Litiasis vesicular">
-    <option value="Litiasis renal">
-    <option value="Hernia inguinal">
-    <option value="Fractura de cadera">
-    <option value="Fractura de fémur">
-    <option value="Politraumatismo">
-    <option value="Accidente cerebrovascular (ACV)">
-    <option value="Infarto agudo de miocardio">
-    <option value="Insuficiencia cardiaca">
-    <option value="Preeclampsia">
-    <option value="Embarazo de alto riesgo">
-    <option value="Amenaza de parto pretérmino">
-    <option value="Aborto incompleto adolescente">
     <option value="Aborto en curso">
-    <option value="Recién nacido prematuro">
-    <option value="Sepsis neonatal">
+    <option value="Aborto incompleto adolescente">
+    <option value="Accidente cerebrovascular (ACV)">
+    <option value="Amenaza de parto pretérmino">
+    <option value="Anemia">
+    <option value="Apendicitis aguda">
+    <option value="Asma bronquial">
+    <option value="Bronquiolitis">
     <option value="Cáncer de cuello uterino">
     <option value="Cáncer de mama">
     <option value="Cáncer gástrico">
-    <option value="Leucemia">
-    <option value="Desnutrición infantil">
-    <option value="Anemia">
-    <option value="Asma bronquial">
-    <option value="EPOC">
-    <option value="Bronquiolitis">
-    <option value="Enfermedad diarreica aguda (EDA)">
-    <option value="Deshidratación">
-    <option value="Epilepsia / Convulsiones">
-    <option value="Depresión">
-    <option value="Esquizofrenia">
-    <option value="Violencia familiar">
-    <option value="Intento de suicidio">
-    <option value="Quemaduras">
-    <option value="Intoxicación">
+    <option value="Cirrosis hepática">
+    <option value="Colecistitis aguda">
     <option value="COVID-19">
+    <option value="Dengue">
+    <option value="Depresión">
+    <option value="Deshidratación">
+    <option value="Desnutrición infantil">
+    <option value="Diabetes mellitus tipo 2">
+    <option value="Embarazo de alto riesgo">
+    <option value="Enfermedad diarreica aguda (EDA)">
+    <option value="Enfermedad renal crónica">
+    <option value="Enfermedad renal crónica en hemodiálisis">
+    <option value="Epilepsia / Convulsiones">
+    <option value="EPOC">
+    <option value="Esquizofrenia">
+    <option value="Fractura de cadera">
+    <option value="Fractura de fémur">
+    <option value="Hepatitis viral">
+    <option value="Hernia inguinal">
+    <option value="Hipertensión arterial">
+    <option value="Infarto agudo de miocardio">
+    <option value="Infección del tracto urinario">
+    <option value="Insuficiencia cardiaca">
+    <option value="Intento de suicidio">
+    <option value="Intoxicación">
+    <option value="Leishmaniasis cutánea">
+    <option value="Leucemia">
+    <option value="Litiasis renal">
+    <option value="Litiasis vesicular">
+    <option value="Malaria">
+    <option value="Neumonía">
     <option value="Peritonitis">
+    <option value="Politraumatismo">
+    <option value="Preeclampsia">
+    <option value="Quemaduras">
+    <option value="Recién nacido prematuro">
+    <option value="Sepsis neonatal">
     <option value="Traumatismo encéfalo craneano (TEC)">
+    <option value="Tuberculosis pulmonar">
+    <option value="VIH/SIDA">
+    <option value="Violencia familiar">
   </datalist>
 
   <datalist id="countryList"></datalist>

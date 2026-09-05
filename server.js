@@ -254,6 +254,15 @@ async function handleApi(req, res, pathname) {
     return sendJson(res, 200, { user: publicUser(user) });
   }
 
+  if (pathname === '/api/me' && method === 'POST') {
+    const body = await readJsonBody(req).catch(() => ({}));
+    const name = String(body.name || '').trim().slice(0, 150);
+    if (!name) return sendJson(res, 400, { error: 'El nombre no puede estar vacío' });
+    await db.patchUser(user.id, { name });
+    const updated = await db.findUserById(user.id);
+    return sendJson(res, 200, { user: publicUser(updated) });
+  }
+
   if (pathname === '/api/change-password' && method === 'POST') {
     const body = await readJsonBody(req).catch(() => ({}));
     const current = String(body.currentPassword || '');

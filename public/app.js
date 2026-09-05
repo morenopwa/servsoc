@@ -182,8 +182,7 @@ function showLogin(){
  $("appRoot").classList.add("app-hidden");
 }
 function applyUserToUI(){
- $("userNameLabel").textContent=currentUserInfo.name;
- $("userRoleLabel").textContent=currentUserInfo.role==="admin"?"Administrador(a)":"Asistenta social";
+ $("userNameLabel").textContent=`${currentUserInfo.name} · ${currentUserInfo.role==="admin"?"Administrador(a)":"Asistenta social"}`;
  document.querySelectorAll(".admin-only").forEach(el=>{el.style.display=currentUserInfo.role==="admin"?"":"none"});
 }
 async function enterApp(){
@@ -229,8 +228,31 @@ $("logoutBtn").onclick=async ()=>{
  showLogin();
 };
 
+/* ------- Mi cuenta ------- */
+$("userMenuBtn").onclick=()=>{
+ $("accountError").textContent="";
+ $("accountName").value=currentUserInfo?currentUserInfo.name:"";
+ $("accountDniValue").textContent=currentUserInfo?currentUserInfo.dni:"—";
+ $("accountModal").classList.add("show");
+};
+$("closeAccount").onclick=()=>$("accountModal").classList.remove("show");
+$("accountForm").onsubmit=async e=>{
+ e.preventDefault();
+ $("accountError").textContent="";
+ const name=$("accountName").value.trim();
+ if(!name){$("accountError").textContent="El nombre no puede estar vacío";return}
+ try{
+   const d=await api("/api/me",{method:"POST",body:{name}});
+   currentUserInfo=d.user;
+   applyUserToUI();
+   toast("Datos actualizados");
+   $("accountModal").classList.remove("show");
+ }catch(err){$("accountError").textContent=err.message||"No se pudo guardar"}
+};
+
 /* ------- Cambiar contraseña ------- */
-$("changePassBtn").onclick=()=>{
+$("accountChangePassBtn").onclick=()=>{
+ $("accountModal").classList.remove("show");
  $("changePasswordForm").reset();$("changePassError").textContent="";
  $("changePassDniValue").textContent=currentUserInfo?currentUserInfo.dni:"—";
  $("changePasswordModal").classList.add("show");
