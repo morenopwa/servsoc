@@ -188,6 +188,7 @@ function sanitizeRecord(r) {
     type: s(r.type, 40),
     service: s(r.service, 60),
     actions: Array.isArray(r.actions) ? r.actions.filter(x => typeof x === 'string').slice(0, 50) : [],
+    managementCount: Math.max(0, Math.min(99, Number(r.managementCount) || 0)),
     morbidity: Array.isArray(r.morbidity) ? r.morbidity.filter(x => typeof x === 'string').slice(0, 50) : [],
     acta: (r.acta && typeof r.acta === 'object') ? {
       menorNombre: s(r.acta.menorNombre, 150),

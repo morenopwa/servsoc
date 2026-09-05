@@ -75,6 +75,9 @@ button{font:inherit}
 .form-panel h3{font-size:15px;margin:20px 0 11px;padding-bottom:8px;border-bottom:1px solid #e5e7eb}
 .checks{display:grid;grid-template-columns:repeat(4,1fr);gap:9px}
 .check{display:flex;flex-direction:row;align-items:center;gap:8px;border:1px solid #e2e8f0;border-radius:9px;padding:10px;background:#f8fafc;font-weight:500;cursor:pointer}
+.check-qty{justify-content:space-between}
+.check-qty .qty-input{width:56px;margin-left:auto;padding:5px 6px;font-size:13px;text-align:center}
+.check-qty .qty-input:disabled{opacity:.45;background:#eef1f5;cursor:not-allowed}
 .check input{accent-color:#2563eb}
 .form-actions{display:flex;justify-content:flex-end;gap:9px;margin-top:25px;flex-wrap:wrap}
 
@@ -93,7 +96,7 @@ td:first-child,th:first-child{text-align:left}
 .report-title{text-align:center}
 .report-title h2{margin:0;font-size:19px}
 .report-title h3{margin:5px 0 15px;font-size:15px}
-.report-meta{display:flex;justify-content:space-between;margin:12px 0;font-size:12px}
+.report-meta{display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 16px;margin:12px 0;font-size:12px}
 .report-table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin-bottom:4px;border-radius:6px}
 .report-table-wrap::-webkit-scrollbar{height:9px}
 .report-table-wrap::-webkit-scrollbar-thumb{background:#94a3b8;border-radius:6px}

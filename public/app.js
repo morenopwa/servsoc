@@ -51,10 +51,38 @@ $("dashMonth").value=monthNow;$("recordMonth").value=monthNow;$("reportMonth").v
 
 function toast(msg){$("toast").textContent=msg;$("toast").classList.add("toast-show");setTimeout(()=>$("toast").classList.remove("toast-show"),2400)}
 function monthOf(r){return r.date.slice(0,7)}
+function reportDateRange(monthStr){
+ // El "mes" del informe va del 26 del mes anterior al 25 del mes seleccionado.
+ const [y,m]=monthStr.split("-").map(Number);
+ const start=new Date(y,m-2,26), end=new Date(y,m-1,25);
+ const fmt=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+ return{start:fmt(start),end:fmt(end),startDate:start,endDate:end};
+}
+function filteredForReport(monthStr){
+ const{start,end}=reportDateRange(monthStr);
+ return records.filter(r=>r.date>=start&&r.date<=end);
+}
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function initChecks(){
- $("actions").innerHTML=ACTIONS.map(([k,l])=>`<label class="check"><input type="checkbox" name="action" value="${k}"> ${l}</label>`).join("");
+ $("actions").innerHTML=ACTIONS.map(([k,l])=>{
+   if(k==="management"){
+     return `<label class="check check-qty"><input type="checkbox" name="action" value="${k}" id="actionManagement"> ${l}
+       <input type="number" id="managementCount" min="1" max="99" class="qty-input" placeholder="N.º" disabled>
+     </label>`;
+   }
+   return `<label class="check"><input type="checkbox" name="action" value="${k}"> ${l}</label>`;
+ }).join("");
  $("morbidity").innerHTML=MORBIDITY.map(([k,l])=>`<label class="check"><input type="checkbox" name="morbidity" value="${k}"> ${l}</label>`).join("");
+ $("actionManagement").addEventListener("change",e=>{
+   const qty=$("managementCount");
+   qty.disabled=!e.target.checked;
+   if(e.target.checked){ if(!qty.value) qty.value="1"; qty.focus(); } else { qty.value=""; }
+ });
+ $("managementCount").addEventListener("click",e=>e.stopPropagation());
+ $("managementCount").addEventListener("change",()=>{
+   const v=Math.max(1,Number($("managementCount").value)||1);
+   $("managementCount").value=v;
+ });
 }
 initChecks();
 
@@ -326,6 +354,8 @@ $("birthDate").addEventListener("change",()=>{
 /* ---------- Listados / dashboard ---------- */
 function filtered(month){return records.filter(r=>monthOf(r)===month)}
 function sumAction(rs,key){return rs.filter(r=>r.actions.includes(key)).length}
+function sumManagementCount(rs){return rs.reduce((acc,r)=>acc+(Number(r.managementCount)||0),0)}
+function actionCount(rs,key){return key==="management"?sumManagementCount(rs):sumAction(rs,key)}
 
 function renderDashboard(){
  const rs=filtered($("dashMonth").value);
@@ -340,7 +370,7 @@ function renderDashboard(){
    for(const service of SERVICES[type]){
      const s=rs.filter(r=>r.type===type&&r.service===service);
      if(!s.length) continue;
-     const vals=[s.length,s.length,...ACTIONS.map(([k])=>sumAction(s,k)),...MORBIDITY.map(([k])=>sumAction(s,k))];
+     const vals=[s.length,s.length,...ACTIONS.map(([k])=>actionCount(s,k)),...MORBIDITY.map(([k])=>sumAction(s,k))];
      html+=`<tr><td>${type} · ${service}</td>${vals.map(v=>`<td>${v||""}</td>`).join("")}</tr>`;
    }
  }
@@ -358,7 +388,11 @@ function renderRecords(){
  let html=`<thead><tr><th>Fecha</th><th>Nombre</th><th>DNI</th><th>Edad</th><th>Tipo</th><th>Servicio</th><th>Atenciones</th><th>Morbilidad</th><th>Acciones</th></tr></thead><tbody>`;
  if(!rs.length) html+=`<tr><td colspan="9" class="empty">No hay registros.</td></tr>`;
  rs.sort((a,b)=>b.date.localeCompare(a.date)).forEach(r=>{
-   const actionLabels=r.actions.map(k=>(ACTIONS.find(x=>x[0]===k)||[])[1]).filter(Boolean).join(", ");
+   const actionLabels=r.actions.map(k=>{
+   const l=(ACTIONS.find(x=>x[0]===k)||[])[1];
+   if(!l)return null;
+   return k==="management"&&r.managementCount?`${l} (${r.managementCount})`:l;
+ }).filter(Boolean).join(", ");
    const mor=r.morbidity.map(k=>(MORBIDITY.find(x=>x[0]===k)||[])[1]).filter(Boolean).join(", ");
    html+=`<tr><td>${r.date}</td><td>${escapeHtml(r.name||r.patient||"—")}</td><td>${escapeHtml(r.dni)}</td><td>${escapeHtml(ageLabel(r))}</td><td>${r.type}</td><td>${r.service}</td><td>${escapeHtml(actionLabels)}</td><td>${escapeHtml(mor)}</td><td class="actions-cell"><button title="Editar" onclick="editRecord('${r.id}')">✏️</button><button title="Acta de entrega" onclick="openActa('${r.id}')">📄</button><button title="Eliminar" onclick="deleteRecord('${r.id}')">🗑️</button></td></tr>`;
  });
@@ -392,6 +426,7 @@ $("attentionForm").onsubmit=async e=>{
    type:$("type").value,
    service:$("service").value,
    actions:[...document.querySelectorAll('input[name="action"]:checked')].map(x=>x.value),
+   managementCount:$("actionManagement").checked?(Math.max(1,Number($("managementCount").value)||1)):0,
    morbidity:[...document.querySelectorAll('input[name="morbidity"]:checked')].map(x=>x.value),
    acta:existing?existing.acta:null
  };
@@ -407,6 +442,7 @@ function resetForm(){
  $("attentionForm").reset();$("editId").value="";$("date").value=dateNow;$("formTitle").textContent="Registrar atención";
  $("service").innerHTML='<option value="">Selecciona primero el tipo</option>';
  $("country").value=DEFAULT_COUNTRY;renderDepartmentField("");
+ $("managementCount").value="";$("managementCount").disabled=true;
 }
 $("cancelEdit").onclick=()=>{resetForm();showView("records")};
 
@@ -416,12 +452,15 @@ window.editRecord=id=>{
  $("editId").value=r.id;$("date").value=r.date;
  $("name").value=r.name||"";$("dni").value=r.dni||"";$("bed").value=r.bed||"";
  $("birthDate").value=r.birthDate||"";$("ageValue").value=r.ageValue??"";$("ageUnit").value=r.ageUnit||"años";
- $("diagnosis").value=r.diagnosis||"";$("province").value=r.province||"";$("district").value=r.district||"";$("patient").value=r.patient||"";
+ $("diagnosis").value=r.diagnosis||"";$("patient").value=r.patient||"";
  $("country").value=r.country||DEFAULT_COUNTRY;renderDepartmentField(r.department||"",r.province||"",r.district||"");
  $("guardianName").value=r.guardianName||"";$("guardianPhone").value=r.guardianPhone||"";$("guardianDni").value=r.guardianDni||"";
  $("type").value=r.type;populateServices();$("service").value=r.service;$("formTitle").textContent="Editar atención";
  document.querySelectorAll('input[name="action"]').forEach(x=>x.checked=r.actions.includes(x.value));
  document.querySelectorAll('input[name="morbidity"]').forEach(x=>x.checked=r.morbidity.includes(x.value));
+ const isManaged=r.actions.includes("management");
+ $("managementCount").disabled=!isManaged;
+ $("managementCount").value=isManaged?(r.managementCount||1):"";
 };
 window.deleteRecord=async id=>{
  if(!confirm("¿Eliminar esta atención?"))return;
@@ -440,7 +479,7 @@ function reportTable(type,rs){
  let totals=Array(headers.length-1).fill(0);
  for(const service of services){
    const s=rs.filter(r=>r.type===type&&r.service===service);
-   const vals=[s.length,s.length,...ACTIONS.map(([k])=>sumAction(s,k)),...MORBIDITY.map(([k])=>sumAction(s,k))];
+   const vals=[s.length,s.length,...ACTIONS.map(([k])=>actionCount(s,k)),...MORBIDITY.map(([k])=>sumAction(s,k))];
    vals.forEach((v,i)=>totals[i]+=v);
    h+=`<tr><td>${service}</td>${vals.map(v=>`<td>${v||""}</td>`).join("")}</tr>`;
  }
@@ -481,9 +520,12 @@ function miniTable(rows,label){
 }
 
 function renderReport(){
- const month=$("reportMonth").value, rs=filtered(month);
+ const month=$("reportMonth").value, rs=filteredForReport(month);
+ const{startDate,endDate}=reportDateRange(month);
+ const fmtLong=d=>d.toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
  const d=new Date(month+"-01T12:00:00");
  const label=d.toLocaleDateString("es-PE",{month:"long",year:"numeric"}).toUpperCase();
+ const periodLabel=`Del ${fmtLong(startDate)} al ${fmtLong(endDate)}`;
  const a=reportTable("Consulta externa",rs), b=reportTable("Hospitalización",rs);
  const grand=a.totals.map((v,i)=>v+b.totals[i]);
  const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
@@ -496,7 +538,7 @@ function renderReport(){
    :`<div class="age-otros"><strong>Otros (mayores de ${MAX_AGE} años):</strong> 0 pacientes</div>`;
  $("reportContent").innerHTML=`
  <div class="report-title"><h2>INFORME DE PRODUCCIÓN DEL DEPARTAMENTO DE SERVICIO SOCIAL</h2><h3>UNIDAD: CONSULTA EXTERNA / HOSPITALIZACIÓN</h3></div>
- <div class="report-meta"><span>MES: <strong>${label}</strong></span><span>Total de registros: <strong>${rs.length}</strong></span></div>
+ <div class="report-meta"><span>MES: <strong>${label}</strong></span><span>Periodo: <strong>${periodLabel}</strong></span><span>Total de registros: <strong>${rs.length}</strong></span></div>
  <h4>CONSULTA EXTERNA</h4>${a.html}
  <h4>HOSPITALIZACIÓN</h4>${b.html}
  <h4>TOTAL GENERAL (Subtotal 1 + Subtotal 2)</h4>
@@ -670,6 +712,7 @@ function recordToRow(r){
    "Servicio":r.service
  };
  ACTIONS.forEach(([k,l])=>row[l]=r.actions.includes(k)?"Sí":"");
+ row["N.º de gestiones"]=r.managementCount||"";
  MORBIDITY.forEach(([k,l])=>row[l]=r.morbidity.includes(k)?"Sí":"");
  row["Acta - Menor (nombre)"]=r.acta?.menorNombre||"";
  row["Acta - Menor (edad)"]=r.acta?.menorEdad||"";
@@ -708,6 +751,7 @@ function rowToRecord(row){
    type:get("Tipo de atención"),
    service:get("Servicio"),
    actions:ACTIONS.filter(([k,l])=>row[l]==="Sí").map(([k])=>k),
+   managementCount:get("N.º de gestiones")===""?0:Math.max(1,Number(get("N.º de gestiones"))||1),
    morbidity:MORBIDITY.filter(([k,l])=>row[l]==="Sí").map(([k])=>k),
    acta:actaHasData?{
      menorNombre:get("Acta - Menor (nombre)"),
