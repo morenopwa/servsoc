@@ -211,6 +211,8 @@ function sanitizeRecord(r) {
 async function handleApi(req, res, pathname) {
   const method = req.method;
   const secure = isHttps(req);
+  let query;
+  try { query = new URL(req.url, 'http://localhost').searchParams; } catch (e) { query = new URLSearchParams(); }
 
   if (pathname === '/api/health' && method === 'GET') {
     try {
@@ -276,7 +278,13 @@ async function handleApi(req, res, pathname) {
   }
 
   if (pathname === '/api/records' && method === 'GET') {
-    const records = await db.listRecords();
+    const all = await db.listRecords();
+    if (user.role === 'admin') {
+      const filterUser = query.get('user');
+      const records = filterUser ? all.filter(r => r.createdBy === filterUser) : all;
+      return sendJson(res, 200, { records });
+    }
+    const records = all.filter(r => r.createdBy === user.dni);
     return sendJson(res, 200, { records });
   }
 
@@ -285,6 +293,9 @@ async function handleApi(req, res, pathname) {
     if (!body) return sendJson(res, 400, { error: 'JSON inválido' });
     const clean = sanitizeRecord(body);
     const existing = await db.findRecordById(clean.id);
+    if (existing && user.role !== 'admin' && existing.createdBy !== user.dni) {
+      return sendJson(res, 403, { error: 'No tienes permiso para editar una atención registrada por otro usuario' });
+    }
     const saved = existing
       ? await db.updateRecord(clean.id, clean, user.dni)
       : await db.insertRecord(clean, user.dni);
@@ -293,6 +304,12 @@ async function handleApi(req, res, pathname) {
 
   if (pathname.startsWith('/api/records/') && pathname !== '/api/records/import' && method === 'DELETE') {
     const id = decodeURIComponent(pathname.slice('/api/records/'.length));
+    if (user.role !== 'admin') {
+      const existing = await db.findRecordById(id);
+      if (!existing || existing.createdBy !== user.dni) {
+        return sendJson(res, 403, { error: 'No tienes permiso para eliminar una atención registrada por otro usuario' });
+      }
+    }
     await db.removeRecord(id);
     return sendJson(res, 200, { ok: true });
   }
@@ -369,7 +386,12 @@ const requestHandler = (req, res) => {
   if (pathname.startsWith('/api/')) {
     handleApi(req, res, pathname).catch(err => {
       console.error(err);
-      sendJson(res, 500, { error: 'Error interno del servidor. Revisa que SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY estén bien configurados.' });
+      const msg = String((err && err.message) || '');
+      const isDbConnIssue = /HTTP 5\d\d|fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN/i.test(msg);
+      const friendly = isDbConnIssue
+        ? 'No se pudo conectar con la base de datos en este momento. Esto puede pasar si el servicio de base de datos estuvo inactivo (por ejemplo, en Supabase gratuito, que se pausa por inactividad). Intenta de nuevo en unos segundos.'
+        : 'Error interno del servidor. Revisa que SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY estén bien configurados.';
+      sendJson(res, 503, { error: friendly, dbIssue: isDbConnIssue });
     });
   } else {
     serveStatic(req, res, pathname);

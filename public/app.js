@@ -7,7 +7,14 @@ const ACTIONS=[
 const MORBIDITY=[["health","Salud"],["economic","Económica"],["family","Familiar"],["housing","Vivienda"],["legal","Legal"]];
 const SERVICES={
  "Consulta externa":["Cirugía","Ginecología","Obstetricia","Medicina","Pediatría","Traumatología","Tropicales","UTR","Evaluación invalidez","MAMIS","Diálisis Peritoneal Adultos","Otros"],
- "Hospitalización":["Cirugía","Ginecología","Obstetricia","Recién Nac.","Medicina","Pediatría","Traumatología","Tropicales","Oncología","UHSMA","CENEX","UTR","Otros"]
+ "Hospitalización":["Cirugía","Ginecología","Obstetricia","Recién Nac.","Medicina","Pediatría","Traumatología","Tropicales","Oncología","UHSMA","CENEX","UTR","Otros"],
+ "Emergencia":["Tópico Cirugía","Tópico Medicina","Tópico Ginec/Obst","Tópico Traumatología","Emergencia Pediátrica"],
+ "UCI's":["Tópico Cirugía","Tópico Medicina","Observación","Aislados","Shock Trauma","UCIN","UCE","UCI Medicina","UCI Cirugía","UCI Pediatría","UCI Recién Nacidos","Emergencia Pediátrica","Pediatría II"]
+};
+// Agrupa los "tipos" en las 2 unidades/informes que se manejan por separado (no se mezcla la data entre unidades)
+const UNITS={
+ "Consulta Externa / Hospitalización":["Consulta externa","Hospitalización"],
+ "Emergencias y UCI's":["Emergencia","UCI's"]
 };
 const MAX_AGE=90;
 const DEFAULT_COUNTRY="Perú";
@@ -48,6 +55,9 @@ let currentUserInfo=null;
 
 $("today").textContent=now.toLocaleDateString("es-PE",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
 $("dashMonth").value=monthNow;$("recordMonth").value=monthNow;$("reportMonth").value=monthNow;$("date").value=dateNow;
+const unitOptions=Object.keys(UNITS).map(u=>`<option>${u}</option>`).join("");
+$("dashUnit").innerHTML=unitOptions;
+$("reportUnit").innerHTML=unitOptions;
 
 function toast(msg){$("toast").textContent=msg;$("toast").classList.add("toast-show");setTimeout(()=>$("toast").classList.remove("toast-show"),2400)}
 function monthOf(r){return r.date.slice(0,7)}
@@ -151,12 +161,18 @@ $("type").addEventListener("change",populateServices);
 
 /* ================= Comunicación con el servidor (API) ================= */
 async function api(path,options={}){
- const res=await fetch(path,{
-   method:options.method||"GET",
-   headers:options.body?{"Content-Type":"application/json"}:{},
-   body:options.body?JSON.stringify(options.body):undefined,
-   credentials:"same-origin"
- });
+ let res;
+ try{
+   res=await fetch(path,{
+     method:options.method||"GET",
+     headers:options.body?{"Content-Type":"application/json"}:{},
+     body:options.body?JSON.stringify(options.body):undefined,
+     credentials:"same-origin"
+   });
+ }catch(networkErr){
+   const err=new Error("No se pudo conectar con el servidor. Revisa tu conexión a internet e intenta de nuevo.");
+   err.networkError=true;throw err;
+ }
  let data=null;
  try{data=await res.json()}catch(e){}
  if(res.status===401){
@@ -167,12 +183,12 @@ async function api(path,options={}){
  }
  if(!res.ok){
    const err=new Error((data&&data.error)||`Error ${res.status}`);
-   err.status=res.status;throw err;
+   err.status=res.status;err.dbIssue=!!(data&&data.dbIssue);throw err;
  }
  return data;
 }
-async function loadRecords(){
- try{const d=await api("/api/records");records=d.records||[]}
+async function loadRecords(filterDni){
+ try{const qs=filterDni?`?user=${encodeURIComponent(filterDni)}`:"";const d=await api("/api/records"+qs);records=d.records||[]}
  catch(e){if(e.status!==401)toast(e.message||"No se pudieron cargar los datos")}
 }
 
@@ -181,9 +197,38 @@ function showLogin(){
  $("loginScreen").classList.remove("app-hidden");
  $("appRoot").classList.add("app-hidden");
 }
+async function checkDbHealth(){
+ const banner=$("dbStatusBanner");
+ banner.classList.add("is-checking");
+ try{
+   const res=await fetch("/api/health");
+   const data=await res.json().catch(()=>null);
+   if(res.ok&&data&&data.ok){banner.style.display="none";return true}
+   throw new Error((data&&data.error)||"Error de conexión");
+ }catch(e){
+   $("dbStatusText").textContent="⚠️ No se pudo conectar con la base de datos. Esto puede pasar si el servicio estuvo inactivo por falta de uso — espera unos segundos y reintenta.";
+   banner.style.display="flex";
+   return false;
+ }finally{
+   banner.classList.remove("is-checking");
+ }
+}
+$("dbStatusRetry").onclick=()=>checkDbHealth();
 function applyUserToUI(){
  $("userNameLabel").textContent=`${currentUserInfo.name} · ${currentUserInfo.role==="admin"?"Administrador(a)":"Asistenta social"}`;
  document.querySelectorAll(".admin-only").forEach(el=>{el.style.display=currentUserInfo.role==="admin"?"":"none"});
+ if(currentUserInfo.role==="admin")populateUserFilters();
+}
+async function populateUserFilters(){
+ const d=await api("/api/users").catch(()=>({users:[]}));
+ const users=(d.users||[]).slice().sort((a,b)=>a.name.localeCompare(b.name,"es"));
+ const opts='<option value="">Todos los usuarios</option>'+users.map(u=>`<option value="${escapeHtml(u.dni)}">${escapeHtml(u.name)}</option>`).join("");
+ ["dashUserFilter","recordUserFilter","reportUserFilter"].forEach(id=>{
+   const sel=$(id);if(!sel)return;
+   const prev=sel.value;
+   sel.innerHTML=opts;
+   sel.value=prev;
+ });
 }
 async function enterApp(){
  $("loginScreen").classList.add("app-hidden");
@@ -192,6 +237,7 @@ async function enterApp(){
  await showView("dashboard");
 }
 async function bootApp(){
+ checkDbHealth();
  try{
    const d=await api("/api/me");
    currentUserInfo=d.user;
@@ -217,6 +263,7 @@ $("loginForm").onsubmit=async e=>{
    if(currentUserInfo.mustChangePassword) toast("Recuerda cambiar tu contraseña inicial en '🔑 Contraseña'");
  }catch(err){
    $("loginError").textContent=err.message||"No se pudo iniciar sesión";
+   if(err.dbIssue||err.networkError)checkDbHealth();
  }finally{
    setLoginLoading(false);
  }
@@ -319,17 +366,22 @@ async function showView(view){
  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
  const titles={dashboard:"Resumen",new:"Nueva atención",records:"Atenciones registradas",report:"Informe mensual",users:"Usuarios del sistema"};
  $("pageTitle").textContent=titles[view]||"";
- if(view==="dashboard"){await loadRecords();renderDashboard()}
- if(view==="records"){await loadRecords();renderRecords()}
- if(view==="report"){await loadRecords();renderReport()}
+ if(view==="dashboard"){await loadRecords($("dashUserFilter")?.value);renderDashboard()}
+ if(view==="records"){await loadRecords($("recordUserFilter")?.value);renderRecords()}
+ if(view==="report"){await loadRecords($("reportUserFilter")?.value);renderReport()}
  if(view==="users")await renderUsers();
  window.scrollTo(0,0);
 }
 
 $("dashMonth").onchange=renderDashboard;
+$("dashUnit").onchange=renderDashboard;
 $("recordMonth").onchange=renderRecords;
 $("reportMonth").onchange=renderReport;
+$("reportUnit").onchange=renderReport;
 $("search").oninput=renderRecords;
+$("dashUserFilter").onchange=async()=>{await loadRecords($("dashUserFilter").value);renderDashboard()};
+$("recordUserFilter").onchange=async()=>{await loadRecords($("recordUserFilter").value);renderRecords()};
+$("reportUserFilter").onchange=async()=>{await loadRecords($("reportUserFilter").value);renderReport()};
 
 /* ---------- Edad ---------- */
 function ageLabel(r){
@@ -382,15 +434,17 @@ function actionCount(rs,key){return key==="management"?sumManagementCount(rs):su
 function actionsTotal(rs){return ACTIONS.reduce((acc,[k])=>acc+actionCount(rs,k),0)}
 
 function renderDashboard(){
- const rs=filtered($("dashMonth").value);
- const external=rs.filter(r=>r.type==="Consulta externa").length, hosp=rs.filter(r=>r.type==="Hospitalización").length;
+ const unit=$("dashUnit").value||Object.keys(UNITS)[0];
+ const types=UNITS[unit];
+ const rs=filtered($("dashMonth").value).filter(r=>types.includes(r.type));
+ const t1=rs.filter(r=>r.type===types[0]).length, t2=rs.filter(r=>r.type===types[1]).length;
  $("summaryCards").innerHTML=[
-  ["👥","Pacientes / atenciones",rs.length],["🏥","Consulta externa",external],["🛏️","Hospitalización",hosp],["📝","Entrevistas",sumAction(rs,"interview")]
+  ["👥","Pacientes / atenciones",rs.length],["🏥",types[0],t1],["🛏️",types[1],t2],["📝","Entrevistas",sumAction(rs,"interview")]
  ].map(x=>`<div class="card"><div class="label">${x[0]} ${x[1]}</div><div class="value">${x[2]}</div></div>`).join("");
  $("dashCount").textContent=`${rs.length} registros`;
  const cols=["Atendidos","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
  let html="<thead><tr><th>Servicio</th>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr></thead><tbody>";
- for(const type of Object.keys(SERVICES)){
+ for(const type of types){
    for(const service of SERVICES[type]){
      const s=rs.filter(r=>r.type===type&&r.service===service);
      if(!s.length) continue;
@@ -398,7 +452,7 @@ function renderDashboard(){
      html+=`<tr><td>${type} · ${service}</td>${vals.map(v=>`<td>${v||""}</td>`).join("")}</tr>`;
    }
  }
- if(!rs.length) html+=`<tr><td colspan="${cols.length+1}" class="empty">No hay atenciones registradas para este mes.</td></tr>`;
+ if(!rs.length) html+=`<tr><td colspan="${cols.length+1}" class="empty">No hay atenciones registradas para esta unidad en este mes.</td></tr>`;
  html+="</tbody>";$("serviceTable").innerHTML=html;
 }
 
@@ -490,13 +544,13 @@ window.deleteRecord=async id=>{
  if(!confirm("¿Eliminar esta atención?"))return;
  try{
    await api("/api/records/"+encodeURIComponent(id),{method:"DELETE"});
-   await loadRecords();renderRecords();renderDashboard();
+   await loadRecords($("recordUserFilter")?.value);renderRecords();renderDashboard();
    toast("Atención eliminada");
  }catch(err){toast(err.message||"No se pudo eliminar")}
 };
 
 /* ---------- Informe mensual ---------- */
-function reportTable(type,rs){
+function reportTable(type,rs,subtotalNum){
  const services=SERVICES[type];
  const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
  let h=`<table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
@@ -507,7 +561,7 @@ function reportTable(type,rs){
    vals.forEach((v,i)=>totals[i]+=v);
    h+=`<tr><td>${service}</td>${vals.map(v=>`<td>${v||""}</td>`).join("")}</tr>`;
  }
- h+=`<tr class="subtotal"><td>SUBTOTAL ${type==="Consulta externa"?"1":"2"}</td>${totals.map(v=>`<td>${v||""}</td>`).join("")}</tr></tbody></table>`;
+ h+=`<tr class="subtotal"><td>SUBTOTAL ${subtotalNum}</td>${totals.map(v=>`<td>${v||""}</td>`).join("")}</tr></tbody></table>`;
  return {html:`<div class="report-table-wrap">${h}</div>`,totals};
 }
 
@@ -544,13 +598,16 @@ function miniTable(rows,label){
 }
 
 function renderReport(){
- const month=$("reportMonth").value, rs=filteredForReport(month);
+ const month=$("reportMonth").value;
+ const unit=$("reportUnit").value||Object.keys(UNITS)[0];
+ const types=UNITS[unit];
+ const rs=filteredForReport(month).filter(r=>types.includes(r.type));
  const{startDate,endDate}=reportDateRange(month);
  const fmtLong=d=>d.toLocaleDateString("es-PE",{day:"numeric",month:"long",year:"numeric"});
  const d=new Date(month+"-01T12:00:00");
  const label=d.toLocaleDateString("es-PE",{month:"long",year:"numeric"}).toUpperCase();
  const periodLabel=`Del ${fmtLong(startDate)} al ${fmtLong(endDate)}`;
- const a=reportTable("Consulta externa",rs), b=reportTable("Hospitalización",rs);
+ const a=reportTable(types[0],rs,1), b=reportTable(types[1],rs,2);
  const grand=a.totals.map((v,i)=>v+b.totals[i]);
  const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
  const {rows:ageRows,otrosCount,otrosAges}=buildAgeRows(rs);
@@ -561,10 +618,10 @@ function renderReport(){
    ?`<div class="age-otros"><strong>Otros (mayores de ${MAX_AGE} años):</strong> ${otrosCount} paciente(s) — edades: ${otrosAges.join(", ")} años</div>`
    :`<div class="age-otros"><strong>Otros (mayores de ${MAX_AGE} años):</strong> 0 pacientes</div>`;
  $("reportContent").innerHTML=`
- <div class="report-title"><h2>INFORME DE PRODUCCIÓN DEL DEPARTAMENTO DE SERVICIO SOCIAL</h2><h3>UNIDAD: CONSULTA EXTERNA / HOSPITALIZACIÓN</h3></div>
+ <div class="report-title"><h2>INFORME DE PRODUCCIÓN DEL DEPARTAMENTO DE SERVICIO SOCIAL</h2><h3>UNIDAD: ${unit.toUpperCase()}</h3></div>
  <div class="report-meta"><span>MES: <strong>${label}</strong></span><span>Periodo: <strong>${periodLabel}</strong></span><span>Total de registros: <strong>${rs.length}</strong></span></div>
- <h4>CONSULTA EXTERNA</h4>${a.html}
- <h4>HOSPITALIZACIÓN</h4>${b.html}
+ <h4>${types[0].toUpperCase()}</h4>${a.html}
+ <h4>${types[1].toUpperCase()}</h4>${b.html}
  <h4>TOTAL GENERAL (Subtotal 1 + Subtotal 2)</h4>
  <div class="report-table-wrap"><table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody><tr class="grand"><td>TOTAL GENERAL</td>${grand.map(v=>`<td>${v||""}</td>`).join("")}</tr></tbody></table></div>
  <div class="report-page2">
@@ -594,7 +651,10 @@ function saveAsPdf(el,filename,orientation="portrait"){
 $("printOrientation").addEventListener("change",()=>setPageOrientation($("printOrientation").value));
 setPageOrientation($("printOrientation").value);
 $("printReport").onclick=()=>{setPageOrientation($("printOrientation").value);window.print()};
-$("pdfReport").onclick=()=>saveAsPdf($("reportContent"),`informe-mensual-${$("reportMonth").value}.pdf`,$("printOrientation").value);
+$("pdfReport").onclick=()=>{
+ const unitSlug=($("reportUnit").value||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+ saveAsPdf($("reportContent"),`informe-mensual-${unitSlug}-${$("reportMonth").value}.pdf`,$("printOrientation").value);
+};
 
 /* ---------- Acta de entrega de menor ---------- */
 const MONTHS_ES=["enero","febrero","marzo","abril","mayo","junio","julio","agosto","setiembre","octubre","noviembre","diciembre"];

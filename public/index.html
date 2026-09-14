@@ -12,6 +12,10 @@
       <div class="brand-icon" style="margin:0 auto 14px">SS</div>
       <h2>Control de Atenciones</h2>
       <p class="muted">Servicio Social</p>
+      <div id="dbStatusBanner" class="db-status-banner" style="display:none">
+        <span id="dbStatusText">⚠️ No se pudo conectar con la base de datos.</span>
+        <button type="button" id="dbStatusRetry">Reintentar</button>
+      </div>
       <label>DNI (usuario)
         <input id="loginDni" required inputmode="numeric" placeholder="Tu DNI" autocomplete="username">
       </label>
@@ -69,6 +73,14 @@
         <label>Mes
           <input type="month" id="dashMonth">
         </label>
+        <label>Unidad
+          <select id="dashUnit"></select>
+        </label>
+        <label class="admin-only" style="display:none">Usuario
+          <select id="dashUserFilter">
+            <option value="">Todos los usuarios</option>
+          </select>
+        </label>
       </div>
       <div class="cards" id="summaryCards"></div>
       <div class="panel">
@@ -98,8 +110,8 @@
             <label>Nombre completo *
               <input required id="name" placeholder="Nombres y apellidos">
             </label>
-            <label>DNI
-              <input id="dni" placeholder="N° de documento" inputmode="numeric" maxlength="15">
+            <label>DNI <span class="muted">(dejar en blanco si no tiene)</span>
+              <input id="dni" placeholder="N° de documento o S/D si no tiene" maxlength="20">
             </label>
             <label>N° de cama
               <input id="bed" placeholder="Ej. 204-B">
@@ -160,6 +172,8 @@
                 <option value="">Seleccionar...</option>
                 <option>Consulta externa</option>
                 <option>Hospitalización</option>
+                <option>Emergencia</option>
+                <option>UCI's</option>
               </select>
             </label>
             <label>Servicio *
@@ -191,6 +205,9 @@
           <div class="toolbar">
             <input id="search" placeholder="🔎 Buscar por nombre, DNI o código...">
             <input type="month" id="recordMonth">
+            <select id="recordUserFilter" class="admin-only" style="display:none">
+              <option value="">Todos los usuarios</option>
+            </select>
           </div>
         </div>
         <div class="table-wrap">
@@ -203,6 +220,14 @@
       <div class="panel report-panel">
         <div class="report-tools no-print">
           <label>Mes <input type="month" id="reportMonth"></label>
+          <label>Unidad
+            <select id="reportUnit"></select>
+          </label>
+          <label class="admin-only" style="display:none">Usuario
+            <select id="reportUserFilter">
+              <option value="">Todos los usuarios</option>
+            </select>
+          </label>
           <label>Orientación
             <select id="printOrientation">
               <option value="portrait" selected>Vertical</option>

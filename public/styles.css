@@ -9,6 +9,10 @@ body{margin:0;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sa
 .login-card h2{margin:4px 0 2px}
 .login-card label{text-align:left;margin-top:14px}
 .login-error{color:#b91c1c;font-size:13px;min-height:18px;margin-top:10px;text-align:left}
+.db-status-banner{display:flex;align-items:center;gap:10px;justify-content:space-between;background:#fef3c7;border:1px solid #f59e0b;color:#92400e;border-radius:9px;padding:10px 12px;font-size:12.5px;text-align:left;margin:2px 0 16px}
+.db-status-banner button{flex-shrink:0;border:0;border-radius:7px;background:#f59e0b;color:#fff;padding:6px 11px;font-size:12px;font-weight:700;cursor:pointer}
+.db-status-banner button:hover{background:#d97706}
+.db-status-banner.is-checking button{opacity:.6;cursor:wait}
 #loginSubmitBtn{display:flex;align-items:center;justify-content:center;gap:9px}
 #loginSubmitBtn:disabled{opacity:.85;cursor:wait}
 .btn-spinner{display:none;width:16px;height:16px;border:2.5px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
