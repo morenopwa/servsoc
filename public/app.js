@@ -55,9 +55,21 @@ let currentUserInfo=null;
 
 $("today").textContent=now.toLocaleDateString("es-PE",{weekday:"long",year:"numeric",month:"long",day:"numeric"});
 $("dashMonth").value=monthNow;$("recordMonth").value=monthNow;$("reportMonth").value=monthNow;$("date").value=dateNow;
-const unitOptions=Object.keys(UNITS).map(u=>`<option>${u}</option>`).join("");
-$("dashUnit").innerHTML=unitOptions;
-$("reportUnit").innerHTML=unitOptions;
+let dashUnit=Object.keys(UNITS)[0], reportUnit=Object.keys(UNITS)[0];
+const UNIT_ICONS={"Consulta Externa / Hospitalización":"🏥","Emergencias y UCI's":"🚑"};
+function setupUnitTabs(containerId,getUnit,setUnit,onChange){
+ function draw(){
+   $(containerId).innerHTML=Object.keys(UNITS).map(u=>
+     `<button type="button" data-unit="${escapeHtml(u)}" class="${u===getUnit()?"active":""}">${UNIT_ICONS[u]||"📋"} ${escapeHtml(u)}</button>`
+   ).join("");
+   $(containerId).querySelectorAll("button").forEach(btn=>{
+     btn.onclick=()=>{setUnit(btn.dataset.unit);draw();onChange()};
+   });
+ }
+ draw();
+}
+setupUnitTabs("dashUnitTabs",()=>dashUnit,u=>dashUnit=u,()=>renderDashboard());
+setupUnitTabs("reportUnitTabs",()=>reportUnit,u=>reportUnit=u,()=>renderReport());
 
 function toast(msg){$("toast").textContent=msg;$("toast").classList.add("toast-show");setTimeout(()=>$("toast").classList.remove("toast-show"),2400)}
 function monthOf(r){return r.date.slice(0,7)}
@@ -374,10 +386,8 @@ async function showView(view){
 }
 
 $("dashMonth").onchange=renderDashboard;
-$("dashUnit").onchange=renderDashboard;
 $("recordMonth").onchange=renderRecords;
 $("reportMonth").onchange=renderReport;
-$("reportUnit").onchange=renderReport;
 $("search").oninput=renderRecords;
 $("dashUserFilter").onchange=async()=>{await loadRecords($("dashUserFilter").value);renderDashboard()};
 $("recordUserFilter").onchange=async()=>{await loadRecords($("recordUserFilter").value);renderRecords()};
@@ -434,7 +444,7 @@ function actionCount(rs,key){return key==="management"?sumManagementCount(rs):su
 function actionsTotal(rs){return ACTIONS.reduce((acc,[k])=>acc+actionCount(rs,k),0)}
 
 function renderDashboard(){
- const unit=$("dashUnit").value||Object.keys(UNITS)[0];
+ const unit=dashUnit||Object.keys(UNITS)[0];
  const types=UNITS[unit];
  const rs=filtered($("dashMonth").value).filter(r=>types.includes(r.type));
  const t1=rs.filter(r=>r.type===types[0]).length, t2=rs.filter(r=>r.type===types[1]).length;
@@ -599,7 +609,7 @@ function miniTable(rows,label){
 
 function renderReport(){
  const month=$("reportMonth").value;
- const unit=$("reportUnit").value||Object.keys(UNITS)[0];
+ const unit=reportUnit||Object.keys(UNITS)[0];
  const types=UNITS[unit];
  const rs=filteredForReport(month).filter(r=>types.includes(r.type));
  const{startDate,endDate}=reportDateRange(month);
@@ -652,7 +662,7 @@ $("printOrientation").addEventListener("change",()=>setPageOrientation($("printO
 setPageOrientation($("printOrientation").value);
 $("printReport").onclick=()=>{setPageOrientation($("printOrientation").value);window.print()};
 $("pdfReport").onclick=()=>{
- const unitSlug=($("reportUnit").value||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
+ const unitSlug=(reportUnit||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-|-$/g,"");
  saveAsPdf($("reportContent"),`informe-mensual-${unitSlug}-${$("reportMonth").value}.pdf`,$("printOrientation").value);
 };
 

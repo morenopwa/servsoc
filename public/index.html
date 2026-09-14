@@ -69,12 +69,10 @@
     </header>
 
     <section id="dashboard" class="view active">
+      <div class="unit-tabs" id="dashUnitTabs"></div>
       <div class="filters">
         <label>Mes
           <input type="month" id="dashMonth">
-        </label>
-        <label>Unidad
-          <select id="dashUnit"></select>
         </label>
         <label class="admin-only" style="display:none">Usuario
           <select id="dashUserFilter">
@@ -218,11 +216,9 @@
 
     <section id="report" class="view">
       <div class="panel report-panel">
+        <div class="unit-tabs no-print" id="reportUnitTabs"></div>
         <div class="report-tools no-print">
           <label>Mes <input type="month" id="reportMonth"></label>
-          <label>Unidad
-            <select id="reportUnit"></select>
-          </label>
           <label class="admin-only" style="display:none">Usuario
             <select id="reportUserFilter">
               <option value="">Todos los usuarios</option>
