@@ -422,11 +422,20 @@ const requestHandler = (req, res) => {
     handleApi(req, res, pathname).catch(err => {
       console.error(err);
       const msg = String((err && err.message) || '');
+      const isMissingTable = /schema cache|does not exist|could not find the table/i.test(msg);
       const isDbConnIssue = /HTTP 5\d\d|fetch failed|ENOTFOUND|ECONNREFUSED|ETIMEDOUT|EAI_AGAIN/i.test(msg);
-      const friendly = isDbConnIssue
-        ? 'No se pudo conectar con la base de datos en este momento. Esto puede pasar si el servicio de base de datos estuvo inactivo (por ejemplo, en Supabase gratuito, que se pausa por inactividad). Intenta de nuevo en unos segundos.'
-        : 'Error interno del servidor. Revisa que SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY estén bien configurados.';
-      sendJson(res, 503, { error: friendly, dbIssue: isDbConnIssue });
+      let friendly, status;
+      if (isMissingTable) {
+        friendly = 'Falta una tabla en la base de datos (probablemente "ss_feedback"). Ejecuta el archivo db/schema.sql actualizado en el SQL Editor de Supabase y vuelve a intentar.';
+        status = 500;
+      } else if (isDbConnIssue) {
+        friendly = 'No se pudo conectar con la base de datos en este momento. Esto puede pasar si el servicio de base de datos estuvo inactivo (por ejemplo, en Supabase gratuito, que se pausa por inactividad). Intenta de nuevo en unos segundos.';
+        status = 503;
+      } else {
+        friendly = 'Error interno del servidor. Revisa que SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY estén bien configurados.';
+        status = 500;
+      }
+      sendJson(res, status, { error: friendly, dbIssue: isDbConnIssue });
     });
   } else {
     serveStatic(req, res, pathname);

@@ -369,7 +369,7 @@ window.resetUserPassword=async id=>{
 };
 
 /* ---------- Sugerencias / quejas ---------- */
-const FEEDBACK_TYPE_LABEL={sugerencia:"💡 Sugerencia",queja:"⚠️ Queja",otro:"📝 Otro"};
+const FEEDBACK_TYPE_LABEL={sugerencia:"🛠️ Servicio técnico",queja:"⚠️ Queja",otro:"📝 Otro"};
 let feedbackItems=[];
 async function renderFeedback(){
  const isAdmin=currentUserInfo.role==="admin";
@@ -692,7 +692,8 @@ function groupCount(rs,field){
 }
 function miniTable(rows,label){
  if(!rows.length)return`<p class="muted">Sin datos registrados este mes.</p>`;
- return`<table class="mini-table"><thead><tr><th>${label}</th><th>Cantidad</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.label)}</td><td>${x.count}</td></tr>`).join("")}</tbody></table>`;
+ const total=rows.reduce((acc,x)=>acc+x.count,0);
+ return`<table class="mini-table"><thead><tr><th>${label}</th><th>Cantidad</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.label)}</td><td>${x.count}</td></tr>`).join("")}</tbody><tfoot><tr class="mini-table-total"><td>Total</td><td>${total}</td></tr></tfoot></table>`;
 }
 
 function renderReport(){
@@ -709,6 +710,7 @@ function renderReport(){
  const grand=a.totals.map((v,i)=>v+b.totals[i]);
  const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
  const {rows:ageRows,otrosCount,otrosAges}=buildAgeRows(rs);
+ const ageTotal=ageRows.reduce((acc,[,c])=>acc+c,0)+otrosCount;
  const diagRows=groupCount(rs,"diagnosis");
  const provinceRows=groupCount(rs,"province");
  const districtRows=groupCount(rs,"district");
@@ -726,6 +728,7 @@ function renderReport(){
    <h4>POBLACIÓN ATENDIDA POR EDAD</h4>
    <div class="age-grid">${ageRows.map(([l,c])=>`<div class="age-cell"><span>${l}</span><b>${c||""}</b></div>`).join("")}</div>
    ${otrosLine}
+   <div class="age-total"><strong>Total de pacientes por edad:</strong> ${ageTotal}</div>
    <div class="report-grid-3">
      <div><h4>POR DIAGNÓSTICO</h4>${miniTable(diagRows,"Diagnóstico")}</div>
      <div><h4>POR PROVINCIA</h4>${miniTable(provinceRows,"Provincia")}</div>

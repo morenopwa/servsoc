@@ -121,7 +121,9 @@ td:first-child,th:first-child{text-align:left}
 .report-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:6px}
 .mini-table{width:100%;border-collapse:collapse;font-size:12px}
 .mini-table th,.mini-table td{border-bottom:1px solid #e5e7eb;padding:5px 6px;text-align:left;white-space:normal}
-.age-otros{font-size:12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-bottom:16px}
+.mini-table-total td{font-weight:800;border-top:2px solid #94a3b8;border-bottom:none;background:#f1f5f9}
+.age-otros{font-size:12px;background:#f1f5f9;border:1px solid #e2e8f0;border-radius:8px;padding:8px 12px;margin-bottom:12px}
+.age-total{font-size:13px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:8px;padding:8px 12px;margin-bottom:16px;color:#3730a3}
 .report-page2{margin-top:10px}
 
 /* Modal - Acta de entrega */
