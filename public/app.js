@@ -5,6 +5,11 @@ const ACTIONS=[
  ["orientation","Orientación social"],["talk","Charla/Reunión"]
 ];
 const MORBIDITY=[["health","Salud"],["economic","Económica"],["family","Familiar"],["housing","Vivienda"],["legal","Legal"]];
+// Acciones que además de marcarse con check, registran una cantidad (N.º de veces)
+const QTY_ACTIONS={
+ management:{qtyId:"managementCount",checkboxId:"actionManagement",excelLabel:"N.º de gestiones"},
+ interview:{qtyId:"interviewCount",checkboxId:"actionInterview",excelLabel:"N.º de entrevistas"}
+};
 const SERVICES={
  "Consulta externa":["Cirugía","Ginecología","Obstetricia","Medicina","Pediatría","Traumatología","Tropicales","UTR","Evaluación invalidez","MAMIS","Diálisis Peritoneal Adultos","Otros"],
  "Hospitalización":["Cirugía","Ginecología","Obstetricia","Recién Nac.","Medicina","Pediatría","Traumatología","Tropicales","Oncología","UHSMA","CENEX","UTR","Otros"],
@@ -87,23 +92,23 @@ function filteredForReport(monthStr){
 function escapeHtml(s){return String(s??"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
 function initChecks(){
  $("actions").innerHTML=ACTIONS.map(([k,l])=>{
-   if(k==="management"){
-     return `<label class="check check-qty"><input type="checkbox" name="action" value="${k}" id="actionManagement"> ${l}
-       <input type="number" id="managementCount" min="1" max="99" class="qty-input" placeholder="N.º" disabled>
+   const q=QTY_ACTIONS[k];
+   if(q){
+     return `<label class="check check-qty"><input type="checkbox" name="action" value="${k}" id="${q.checkboxId}"> ${l}
+       <input type="number" id="${q.qtyId}" min="1" max="99" class="qty-input" placeholder="N.º" disabled>
      </label>`;
    }
    return `<label class="check"><input type="checkbox" name="action" value="${k}"> ${l}</label>`;
  }).join("");
  $("morbidity").innerHTML=MORBIDITY.map(([k,l])=>`<label class="check"><input type="checkbox" name="morbidity" value="${k}"> ${l}</label>`).join("");
- $("actionManagement").addEventListener("change",e=>{
-   const qty=$("managementCount");
-   qty.disabled=!e.target.checked;
-   if(e.target.checked){ if(!qty.value) qty.value="1"; qty.focus(); } else { qty.value=""; }
- });
- $("managementCount").addEventListener("click",e=>e.stopPropagation());
- $("managementCount").addEventListener("change",()=>{
-   const v=Math.max(1,Number($("managementCount").value)||1);
-   $("managementCount").value=v;
+ Object.values(QTY_ACTIONS).forEach(q=>{
+   const checkbox=$(q.checkboxId), qty=$(q.qtyId);
+   checkbox.addEventListener("change",e=>{
+     qty.disabled=!e.target.checked;
+     if(e.target.checked){ if(!qty.value) qty.value="1"; qty.focus(); } else { qty.value=""; }
+   });
+   qty.addEventListener("click",e=>e.stopPropagation());
+   qty.addEventListener("change",()=>{ qty.value=Math.max(1,Number(qty.value)||1); });
  });
 }
 initChecks();
@@ -363,6 +368,78 @@ window.resetUserPassword=async id=>{
  catch(err){toast(err.message||"No se pudo restablecer")}
 };
 
+/* ---------- Sugerencias / quejas ---------- */
+const FEEDBACK_TYPE_LABEL={sugerencia:"💡 Sugerencia",queja:"⚠️ Queja",otro:"📝 Otro"};
+let feedbackItems=[];
+async function renderFeedback(){
+ const isAdmin=currentUserInfo.role==="admin";
+ $("feedbackFormPanel").style.display=isAdmin?"none":"";
+ $("feedbackListTitle").textContent=isAdmin?"Sugerencias y quejas de los usuarios":"Mis sugerencias enviadas";
+ $("feedbackListSubtitle").textContent=isAdmin
+   ?"Marca cada mensaje como revisado y, si quieres, deja una respuesta."
+   :"Aquí puedes ver si el administrador ya revisó tu mensaje.";
+ const d=await api("/api/feedback").catch(()=>({items:[]}));
+ feedbackItems=d.items||[];
+ drawFeedbackList();
+}
+function drawFeedbackList(){
+ const isAdmin=currentUserInfo.role==="admin";
+ const statusFilter=isAdmin?$("feedbackStatusFilter").value:"";
+ const items=feedbackItems.filter(f=>!statusFilter||f.status===statusFilter);
+ if(!items.length){$("feedbackList").innerHTML='<p class="muted">No hay mensajes para mostrar.</p>';return}
+ $("feedbackList").innerHTML=items.map(f=>{
+   const fecha=f.createdAt?new Date(f.createdAt).toLocaleDateString("es-PE",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"}):"";
+   const statusBadge=f.status==="revisado"?'<span class="badge badge-ok">Revisado</span>':'<span class="badge badge-pending">Pendiente</span>';
+   const adminNoteBlock=f.adminNote?`<div class="feedback-note"><strong>Respuesta del administrador:</strong> ${escapeHtml(f.adminNote)}</div>`:"";
+   const adminControls=isAdmin?`
+     <div class="feedback-admin-controls">
+       <textarea placeholder="Escribir respuesta (opcional)" id="note-${f.id}">${escapeHtml(f.adminNote||"")}</textarea>
+       <div class="feedback-admin-buttons">
+         <button class="secondary" onclick="saveFeedbackNote('${f.id}')">💾 Guardar respuesta</button>
+         <button class="secondary" onclick="toggleFeedbackStatus('${f.id}','${f.status==="revisado"?"pendiente":"revisado"}')">${f.status==="revisado"?"↩️ Marcar pendiente":"✅ Marcar revisado"}</button>
+         <button class="secondary" onclick="deleteFeedback('${f.id}')">🗑️ Eliminar</button>
+       </div>
+     </div>`:"";
+   return `<div class="feedback-item">
+     <div class="feedback-item-head">
+       <span>${FEEDBACK_TYPE_LABEL[f.type]||f.type}</span>
+       ${isAdmin?`<strong>${escapeHtml(f.createdByName)}</strong>`:""}
+       <span class="muted">${fecha}</span>
+       ${statusBadge}
+     </div>
+     <div class="feedback-item-msg">${escapeHtml(f.message)}</div>
+     ${adminNoteBlock}
+     ${adminControls}
+   </div>`;
+ }).join("");
+}
+$("feedbackStatusFilter").onchange=drawFeedbackList;
+$("feedbackForm").onsubmit=async e=>{
+ e.preventDefault();
+ const type=$("feedbackType").value, message=$("feedbackMessage").value.trim();
+ if(!message){toast("Escribe un mensaje antes de enviar");return}
+ try{
+   await api("/api/feedback",{method:"POST",body:{type,message}});
+   toast("Mensaje enviado. Gracias por tu retroalimentación.");
+   $("feedbackForm").reset();
+   await renderFeedback();
+ }catch(err){toast(err.message||"No se pudo enviar el mensaje")}
+};
+window.saveFeedbackNote=async id=>{
+ const adminNote=$("note-"+id).value.trim();
+ try{await api("/api/feedback/"+encodeURIComponent(id),{method:"POST",body:{adminNote}});toast("Respuesta guardada");await renderFeedback()}
+ catch(err){toast(err.message||"No se pudo guardar")}
+};
+window.toggleFeedbackStatus=async(id,status)=>{
+ try{await api("/api/feedback/"+encodeURIComponent(id),{method:"POST",body:{status}});toast(status==="revisado"?"Marcado como revisado":"Marcado como pendiente");await renderFeedback()}
+ catch(err){toast(err.message||"No se pudo actualizar")}
+};
+window.deleteFeedback=async id=>{
+ if(!confirm("¿Eliminar este mensaje?"))return;
+ try{await api("/api/feedback/"+encodeURIComponent(id),{method:"DELETE"});toast("Mensaje eliminado");await renderFeedback()}
+ catch(err){toast(err.message||"No se pudo eliminar")}
+};
+
 /* ---------- Navegación / menú hamburguesa ---------- */
 document.querySelectorAll(".nav-btn").forEach(btn=>btn.addEventListener("click",()=>showView(btn.dataset.view)));
 $("quickNew").onclick=()=>showView("new");
@@ -376,11 +453,12 @@ async function showView(view){
  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
  $(view).classList.add("active");
  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
- const titles={dashboard:"Resumen",new:"Nueva atención",records:"Atenciones registradas",report:"Informe mensual",users:"Usuarios del sistema"};
+ const titles={dashboard:"Resumen",new:"Nueva atención",records:"Atenciones registradas",report:"Informe mensual",feedback:"Sugerencias",users:"Usuarios del sistema"};
  $("pageTitle").textContent=titles[view]||"";
  if(view==="dashboard"){await loadRecords($("dashUserFilter")?.value);renderDashboard()}
  if(view==="records"){await loadRecords($("recordUserFilter")?.value);renderRecords()}
  if(view==="report"){await loadRecords($("reportUserFilter")?.value);renderReport()}
+ if(view==="feedback")await renderFeedback();
  if(view==="users")await renderUsers();
  window.scrollTo(0,0);
 }
@@ -430,7 +508,12 @@ function computeAge(dobStr,refStr){
  return{value:years,unit:"años"};
 }
 $("birthDate").addEventListener("change",()=>{
- if(!$("birthDate").value||$("ageValue").value!=="")return;
+ if(!$("birthDate").value)return;
+ const a=computeAge($("birthDate").value,$("date").value);
+ if(a){$("ageValue").value=a.value;$("ageUnit").value=a.unit}
+});
+$("date").addEventListener("change",()=>{
+ if(!$("birthDate").value)return;
  const a=computeAge($("birthDate").value,$("date").value);
  if(a){$("ageValue").value=a.value;$("ageUnit").value=a.unit}
 });
@@ -439,8 +522,8 @@ $("birthDate").addEventListener("change",()=>{
 function filtered(month){return records.filter(r=>monthOf(r)===month)}
 function sumAction(rs,key){return rs.filter(r=>r.actions.includes(key)).length}
 function sumMorbidity(rs,key){return rs.filter(r=>r.morbidity.includes(key)).length}
-function sumManagementCount(rs){return rs.reduce((acc,r)=>acc+(Number(r.managementCount)||0),0)}
-function actionCount(rs,key){return key==="management"?sumManagementCount(rs):sumAction(rs,key)}
+function sumQtyField(rs,field){return rs.reduce((acc,r)=>acc+(Number(r[field])||0),0)}
+function actionCount(rs,key){const q=QTY_ACTIONS[key];return q?sumQtyField(rs,q.qtyId):sumAction(rs,key)}
 function actionsTotal(rs){return ACTIONS.reduce((acc,[k])=>acc+actionCount(rs,k),0)}
 
 function renderDashboard(){
@@ -449,7 +532,7 @@ function renderDashboard(){
  const rs=filtered($("dashMonth").value).filter(r=>types.includes(r.type));
  const t1=rs.filter(r=>r.type===types[0]).length, t2=rs.filter(r=>r.type===types[1]).length;
  $("summaryCards").innerHTML=[
-  ["👥","Pacientes / atenciones",rs.length],["🏥",types[0],t1],["🛏️",types[1],t2],["📝","Entrevistas",sumAction(rs,"interview")]
+  ["👥","Pacientes / atenciones",rs.length],["🏥",types[0],t1],["🛏️",types[1],t2],["📝","Entrevistas",actionCount(rs,"interview")]
  ].map(x=>`<div class="card"><div class="label">${x[0]} ${x[1]}</div><div class="value">${x[2]}</div></div>`).join("");
  $("dashCount").textContent=`${rs.length} registros`;
  const cols=["Atendidos","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
@@ -479,7 +562,8 @@ function renderRecords(){
    const actionLabels=r.actions.map(k=>{
    const l=(ACTIONS.find(x=>x[0]===k)||[])[1];
    if(!l)return null;
-   return k==="management"&&r.managementCount?`${l} (${r.managementCount})`:l;
+   const q=QTY_ACTIONS[k];
+   return q&&r[q.qtyId]?`${l} (${r[q.qtyId]})`:l;
  }).filter(Boolean).join(", ");
    const mor=r.morbidity.map(k=>(MORBIDITY.find(x=>x[0]===k)||[])[1]).filter(Boolean).join(", ");
    html+=`<tr><td>${r.date}</td><td>${escapeHtml(r.name||r.patient||"—")}</td><td>${escapeHtml(r.dni)}</td><td>${escapeHtml(ageLabel(r))}</td><td>${r.type}</td><td>${r.service}</td><td>${escapeHtml(actionLabels)}</td><td>${escapeHtml(mor)}</td><td class="actions-cell"><button title="Editar" onclick="editRecord('${r.id}')">✏️</button><button title="Acta de entrega" onclick="openActa('${r.id}')">📄</button><button title="Eliminar" onclick="deleteRecord('${r.id}')">🗑️</button></td></tr>`;
@@ -514,10 +598,12 @@ $("attentionForm").onsubmit=async e=>{
    type:$("type").value,
    service:$("service").value,
    actions:[...document.querySelectorAll('input[name="action"]:checked')].map(x=>x.value),
-   managementCount:$("actionManagement").checked?(Math.max(1,Number($("managementCount").value)||1)):0,
    morbidity:[...document.querySelectorAll('input[name="morbidity"]:checked')].map(x=>x.value),
    acta:existing?existing.acta:null
  };
+ Object.entries(QTY_ACTIONS).forEach(([key,q])=>{
+   r[q.qtyId]=$(q.checkboxId).checked?(Math.max(1,Number($(q.qtyId).value)||1)):0;
+ });
  if(!r.type||!r.service){toast("Selecciona tipo y servicio");return}
  try{
    await api("/api/records",{method:"POST",body:r});
@@ -530,7 +616,7 @@ function resetForm(){
  $("attentionForm").reset();$("editId").value="";$("date").value=dateNow;$("formTitle").textContent="Registrar atención";
  $("service").innerHTML='<option value="">Selecciona primero el tipo</option>';
  $("country").value=DEFAULT_COUNTRY;renderDepartmentField("");
- $("managementCount").value="";$("managementCount").disabled=true;
+ Object.values(QTY_ACTIONS).forEach(q=>{$(q.qtyId).value="";$(q.qtyId).disabled=true});
 }
 $("cancelEdit").onclick=()=>{resetForm();showView("records")};
 
@@ -546,9 +632,11 @@ window.editRecord=id=>{
  $("type").value=r.type;populateServices();$("service").value=r.service;$("formTitle").textContent="Editar atención";
  document.querySelectorAll('input[name="action"]').forEach(x=>x.checked=r.actions.includes(x.value));
  document.querySelectorAll('input[name="morbidity"]').forEach(x=>x.checked=r.morbidity.includes(x.value));
- const isManaged=r.actions.includes("management");
- $("managementCount").disabled=!isManaged;
- $("managementCount").value=isManaged?(r.managementCount||1):"";
+ Object.entries(QTY_ACTIONS).forEach(([key,q])=>{
+   const isChecked=r.actions.includes(key);
+   $(q.qtyId).disabled=!isChecked;
+   $(q.qtyId).value=isChecked?(r[q.qtyId]||1):"";
+ });
 };
 window.deleteRecord=async id=>{
  if(!confirm("¿Eliminar esta atención?"))return;
@@ -806,7 +894,7 @@ function recordToRow(r){
    "Servicio":r.service
  };
  ACTIONS.forEach(([k,l])=>row[l]=r.actions.includes(k)?"Sí":"");
- row["N.º de gestiones"]=r.managementCount||"";
+ Object.values(QTY_ACTIONS).forEach(q=>{row[q.excelLabel]=r[q.qtyId]||""});
  MORBIDITY.forEach(([k,l])=>row[l]=r.morbidity.includes(k)?"Sí":"");
  row["Acta - Menor (nombre)"]=r.acta?.menorNombre||"";
  row["Acta - Menor (edad)"]=r.acta?.menorEdad||"";
@@ -824,7 +912,7 @@ function recordToRow(r){
 function rowToRecord(row){
  const get=k=>row[k]===undefined||row[k]===null?"":String(row[k]);
  const actaHasData=["Acta - Menor (nombre)","Acta - Responsable (nombre)","Acta - Fecha del acta"].some(k=>get(k));
- return{
+ const rec={
    id:get("ID")||crypto.randomUUID(),
    date:get("Fecha"),
    name:get("Nombre completo"),
@@ -845,7 +933,6 @@ function rowToRecord(row){
    type:get("Tipo de atención"),
    service:get("Servicio"),
    actions:ACTIONS.filter(([k,l])=>row[l]==="Sí").map(([k])=>k),
-   managementCount:get("N.º de gestiones")===""?0:Math.max(1,Number(get("N.º de gestiones"))||1),
    morbidity:MORBIDITY.filter(([k,l])=>row[l]==="Sí").map(([k])=>k),
    acta:actaHasData?{
      menorNombre:get("Acta - Menor (nombre)"),
@@ -861,6 +948,10 @@ function rowToRecord(row){
      fechaFirma:get("Acta - Fecha del acta")
    }:null
  };
+ Object.values(QTY_ACTIONS).forEach(q=>{
+   rec[q.qtyId]=get(q.excelLabel)===""?0:Math.max(1,Number(get(q.excelLabel))||1);
+ });
+ return rec;
 }
 $("backupBtn").onclick=async ()=>{
  await loadRecords();

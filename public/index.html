@@ -45,6 +45,7 @@
       <button class="nav-btn" data-view="new">➕ Nueva atención</button>
       <button class="nav-btn" data-view="records">👥 Atenciones</button>
       <button class="nav-btn" data-view="report">📑 Informe mensual</button>
+      <button class="nav-btn" data-view="feedback">💬 Sugerencias</button>
       <button class="nav-btn admin-only" data-view="users" style="display:none">🛡️ Usuarios</button>
     </nav>
     <div class="side-footer">
@@ -236,6 +237,44 @@
           </div>
         </div>
         <div id="reportContent"></div>
+      </div>
+    </section>
+
+    <section id="feedback" class="view">
+      <div class="panel" id="feedbackFormPanel">
+        <div class="panel-head">
+          <div>
+            <h2>Enviar sugerencia o queja</h2>
+            <p class="muted">Este mensaje lo revisará el administrador del sistema. Puedes ver el estado de tus mensajes enviados más abajo.</p>
+          </div>
+        </div>
+        <form id="feedbackForm" class="form-grid" style="align-items:end">
+          <label>Tipo
+            <select id="feedbackType">
+              <option value="sugerencia">💡 Sugerencia</option>
+              <option value="queja">⚠️ Queja</option>
+              <option value="otro">📝 Otro</option>
+            </select>
+          </label>
+          <label style="grid-column:1/-1">Mensaje
+            <textarea id="feedbackMessage" rows="4" placeholder="Cuéntanos qué pasó o qué te gustaría que mejoremos..." required></textarea>
+          </label>
+          <button class="primary" type="submit">📤 Enviar</button>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div>
+            <h2 id="feedbackListTitle">Mis sugerencias enviadas</h2>
+            <p class="muted" id="feedbackListSubtitle">Aquí puedes ver si el administrador ya revisó tu mensaje.</p>
+          </div>
+          <select id="feedbackStatusFilter" class="admin-only" style="display:none">
+            <option value="">Todos los estados</option>
+            <option value="pendiente">Pendientes</option>
+            <option value="revisado">Revisados</option>
+          </select>
+        </div>
+        <div id="feedbackList"></div>
       </div>
     </section>
 

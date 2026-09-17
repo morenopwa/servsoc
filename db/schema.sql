@@ -24,6 +24,18 @@ create table if not exists ss_records (
   updated_at timestamptz
 );
 
+create table if not exists ss_feedback (
+  id uuid primary key default gen_random_uuid(),
+  created_by text not null,
+  created_by_name text not null,
+  type text not null default 'sugerencia',
+  message text not null,
+  status text not null default 'pendiente',
+  admin_note text,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz
+);
+
 -- Activamos seguridad a nivel de fila (RLS) y NO creamos ninguna política.
 -- Esto significa que la clave pública "anon" no puede leer ni escribir NADA
 -- en estas tablas. Solo nuestro servidor, usando la "service_role key"
@@ -31,3 +43,4 @@ create table if not exists ss_records (
 -- se filtrara alguna vez, los datos de pacientes seguirían protegidos.
 alter table ss_users enable row level security;
 alter table ss_records enable row level security;
+alter table ss_feedback enable row level security;

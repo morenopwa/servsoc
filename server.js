@@ -189,6 +189,7 @@ function sanitizeRecord(r) {
     service: s(r.service, 60),
     actions: Array.isArray(r.actions) ? r.actions.filter(x => typeof x === 'string').slice(0, 50) : [],
     managementCount: Math.max(0, Math.min(99, Number(r.managementCount) || 0)),
+    interviewCount: Math.max(0, Math.min(99, Number(r.interviewCount) || 0)),
     morbidity: Array.isArray(r.morbidity) ? r.morbidity.filter(x => typeof x === 'string').slice(0, 50) : [],
     acta: (r.acta && typeof r.acta === 'object') ? {
       menorNombre: s(r.acta.menorNombre, 150),
@@ -321,6 +322,40 @@ async function handleApi(req, res, pathname) {
     const records = body.records.slice(0, 20000).map(sanitizeRecord);
     const count = await db.replaceAllRecords(records);
     return sendJson(res, 200, { ok: true, count });
+  }
+
+  // Sugerencias / quejas al administrador
+  if (pathname === '/api/feedback' && method === 'GET') {
+    const all = await db.listFeedback();
+    const items = user.role === 'admin' ? all : all.filter(f => f.createdBy === user.dni);
+    return sendJson(res, 200, { items });
+  }
+
+  if (pathname === '/api/feedback' && method === 'POST') {
+    const body = await readJsonBody(req).catch(() => ({}));
+    const type = ['sugerencia', 'queja', 'otro'].includes(body.type) ? body.type : 'sugerencia';
+    const message = textField(body.message, 2000);
+    if (!message) return sendJson(res, 400, { error: 'Escribe un mensaje antes de enviar' });
+    const saved = await db.insertFeedback({ createdBy: user.dni, createdByName: user.name, type, message });
+    return sendJson(res, 200, { ok: true, item: saved });
+  }
+
+  if (pathname.startsWith('/api/feedback/') && method === 'POST') {
+    if (user.role !== 'admin') return sendJson(res, 403, { error: 'No autorizado' });
+    const id = decodeURIComponent(pathname.slice('/api/feedback/'.length));
+    const body = await readJsonBody(req).catch(() => ({}));
+    const patch = {};
+    if (['pendiente', 'revisado'].includes(body.status)) patch.status = body.status;
+    if (body.adminNote !== undefined) patch.adminNote = textField(body.adminNote, 2000);
+    const saved = await db.patchFeedback(id, patch);
+    return sendJson(res, 200, { ok: true, item: saved });
+  }
+
+  if (pathname.startsWith('/api/feedback/') && method === 'DELETE') {
+    if (user.role !== 'admin') return sendJson(res, 403, { error: 'No autorizado' });
+    const id = decodeURIComponent(pathname.slice('/api/feedback/'.length));
+    await db.removeFeedback(id);
+    return sendJson(res, 200, { ok: true });
   }
 
   // Administración de usuarios (solo admin)

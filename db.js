@@ -156,7 +156,57 @@ async function replaceAllRecords(records) {
   return records.length;
 }
 
+/* ============================== Sugerencias/quejas ============================== */
+function feedbackFromRow(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    createdBy: row.created_by,
+    createdByName: row.created_by_name,
+    type: row.type,
+    message: row.message,
+    status: row.status,
+    adminNote: row.admin_note || '',
+    createdAt: row.created_at,
+    updatedAt: row.updated_at
+  };
+}
+async function listFeedback() {
+  const rows = await rest('ss_feedback?select=*&order=created_at.desc');
+  return rows.map(feedbackFromRow);
+}
+async function insertFeedback(entry) {
+  const rows = await rest('ss_feedback', {
+    method: 'POST',
+    extraHeaders: { Prefer: 'return=representation' },
+    body: [{
+      created_by: entry.createdBy,
+      created_by_name: entry.createdByName,
+      type: entry.type,
+      message: entry.message,
+      status: 'pendiente'
+    }]
+  });
+  return feedbackFromRow(rows[0]);
+}
+async function patchFeedback(id, patch) {
+  const row = {};
+  if (patch.status !== undefined) row.status = patch.status;
+  if (patch.adminNote !== undefined) row.admin_note = patch.adminNote;
+  row.updated_at = new Date().toISOString();
+  const rows = await rest(`ss_feedback?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    extraHeaders: { Prefer: 'return=representation' },
+    body: row
+  });
+  return feedbackFromRow(rows[0]);
+}
+async function removeFeedback(id) {
+  await rest(`ss_feedback?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 module.exports = {
   listUsers, findUserByDni, findUserById, createUser, patchUser, removeUser,
-  listRecords, findRecordById, insertRecord, updateRecord, removeRecord, replaceAllRecords
+  listRecords, findRecordById, insertRecord, updateRecord, removeRecord, replaceAllRecords,
+  listFeedback, insertFeedback, patchFeedback, removeFeedback
 };
