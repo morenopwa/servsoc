@@ -25,6 +25,49 @@ const SESSION_TTL_MS = 8 * 60 * 60 * 1000; // 8 horas
 const MAX_LOGIN_ATTEMPTS = 5;
 const LOCKOUT_MS = 15 * 60 * 1000; // 15 minutos
 
+/* ======================= Notificación por correo (Resend) ================= */
+// Variables de entorno necesarias en Render:
+//   RESEND_API_KEY -> API key de https://resend.com (plan gratuito: 100 correos/día)
+//   NOTIFY_EMAIL   -> a qué correo(s) avisar (separados por coma si son varios)
+//   NOTIFY_FROM    -> opcional; remitente. Si no se configura un dominio propio
+//                     en Resend, usar "onboarding@resend.dev" (solo permite
+//                     enviar a la MISMA cuenta con la que te registraste en Resend).
+const FEEDBACK_TYPE_LABELS = { sugerencia: 'Servicio técnico', queja: 'Queja', otro: 'Otro' };
+async function notifyNewFeedback(item) {
+  const apiKey = process.env.RESEND_API_KEY;
+  const toRaw = process.env.NOTIFY_EMAIL;
+  if (!apiKey || !toRaw) return; // Notificaciones no configuradas: no hacer nada.
+  const to = toRaw.split(',').map(s => s.trim()).filter(Boolean);
+  if (!to.length) return;
+  const from = process.env.NOTIFY_FROM || 'onboarding@resend.dev';
+  const typeLabel = FEEDBACK_TYPE_LABELS[item.type] || item.type;
+  const fecha = new Date(item.createdAt || Date.now()).toLocaleString('es-PE', { dateStyle: 'medium', timeStyle: 'short' });
+  const html = `
+    <div style="font-family:Arial,sans-serif;max-width:520px">
+      <h2 style="color:#2563eb">Nuevo mensaje: ${escapeHtmlBasic(typeLabel)}</h2>
+      <p><strong>De:</strong> ${escapeHtmlBasic(item.createdByName)} (DNI ${escapeHtmlBasic(item.createdBy)})</p>
+      <p><strong>Fecha:</strong> ${fecha}</p>
+      <p style="white-space:pre-wrap;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:12px">${escapeHtmlBasic(item.message)}</p>
+      <p style="color:#64748b;font-size:13px">Ingresa a Control de Atenciones → Servicio técnico para responder.</p>
+    </div>`;
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({ from, to, subject: `[Servicio Social] Nuevo mensaje: ${typeLabel}`, html })
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      console.error('Resend respondió con error al notificar por correo:', res.status, detail);
+    }
+  } catch (err) {
+    console.error('No se pudo enviar el correo de notificación:', err.message);
+  }
+}
+function escapeHtmlBasic(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[m]));
+}
+
 /* ============================= Contraseñas =============================== */
 function hashPassword(password, salt) {
   return crypto.scryptSync(String(password), salt, 64).toString('hex');
@@ -303,6 +346,33 @@ async function handleApi(req, res, pathname) {
     return sendJson(res, 200, { ok: true, record: saved });
   }
 
+  if (pathname === '/api/records/trash' && method === 'GET') {
+    const all = await db.listDeletedRecords();
+    const items = user.role === 'admin' ? all : all.filter(r => r.createdBy === user.dni);
+    return sendJson(res, 200, { records: items });
+  }
+
+  if (pathname.startsWith('/api/records/') && pathname.endsWith('/restore') && method === 'POST') {
+    const id = decodeURIComponent(pathname.slice('/api/records/'.length, -'/restore'.length));
+    const existing = await db.findRecordById(id);
+    if (!existing) return sendJson(res, 404, { error: 'No encontrado' });
+    if (user.role !== 'admin' && existing.createdBy !== user.dni) {
+      return sendJson(res, 403, { error: 'No tienes permiso para restaurar esta atención' });
+    }
+    await db.restoreRecord(id);
+    return sendJson(res, 200, { ok: true });
+  }
+
+  if (pathname.startsWith('/api/records/') && pathname.endsWith('/permanent') && method === 'DELETE') {
+    const id = decodeURIComponent(pathname.slice('/api/records/'.length, -'/permanent'.length));
+    const existing = await db.findRecordById(id);
+    if (existing && user.role !== 'admin' && existing.createdBy !== user.dni) {
+      return sendJson(res, 403, { error: 'No tienes permiso para eliminar esta atención' });
+    }
+    await db.removeRecord(id);
+    return sendJson(res, 200, { ok: true });
+  }
+
   if (pathname.startsWith('/api/records/') && pathname !== '/api/records/import' && method === 'DELETE') {
     const id = decodeURIComponent(pathname.slice('/api/records/'.length));
     if (user.role !== 'admin') {
@@ -311,7 +381,7 @@ async function handleApi(req, res, pathname) {
         return sendJson(res, 403, { error: 'No tienes permiso para eliminar una atención registrada por otro usuario' });
       }
     }
-    await db.removeRecord(id);
+    await db.softDeleteRecord(id, user.dni);
     return sendJson(res, 200, { ok: true });
   }
 
@@ -337,6 +407,7 @@ async function handleApi(req, res, pathname) {
     const message = textField(body.message, 2000);
     if (!message) return sendJson(res, 400, { error: 'Escribe un mensaje antes de enviar' });
     const saved = await db.insertFeedback({ createdBy: user.dni, createdByName: user.name, type, message });
+    notifyNewFeedback(saved).catch(() => {}); // no bloquear ni fallar la petición si el correo falla
     return sendJson(res, 200, { ok: true, item: saved });
   }
 

@@ -235,6 +235,7 @@ function applyUserToUI(){
  $("userNameLabel").textContent=`${currentUserInfo.name} · ${currentUserInfo.role==="admin"?"Administrador(a)":"Asistenta social"}`;
  document.querySelectorAll(".admin-only").forEach(el=>{el.style.display=currentUserInfo.role==="admin"?"":"none"});
  if(currentUserInfo.role==="admin")populateUserFilters();
+ updateFeedbackBadge();
 }
 async function populateUserFilters(){
  const d=await api("/api/users").catch(()=>({users:[]}));
@@ -371,15 +372,28 @@ window.resetUserPassword=async id=>{
 /* ---------- Sugerencias / quejas ---------- */
 const FEEDBACK_TYPE_LABEL={sugerencia:"🛠️ Servicio técnico",queja:"⚠️ Queja",otro:"📝 Otro"};
 let feedbackItems=[];
+function showFeedbackBadgeCount(items){
+ const pending=items.filter(f=>f.status==="pendiente").length;
+ const badge=$("feedbackBadge");
+ if(pending>0){badge.textContent=pending;badge.style.display="inline-flex"}
+ else{badge.style.display="none"}
+}
+async function updateFeedbackBadge(){
+ try{
+   const d=await api("/api/feedback");
+   showFeedbackBadgeCount(d.items||[]);
+ }catch(e){/* silencioso: no interrumpir el resto de la app por esto */}
+}
 async function renderFeedback(){
  const isAdmin=currentUserInfo.role==="admin";
  $("feedbackFormPanel").style.display=isAdmin?"none":"";
- $("feedbackListTitle").textContent=isAdmin?"Sugerencias y quejas de los usuarios":"Mis sugerencias enviadas";
+ $("feedbackListTitle").textContent=isAdmin?"Mensajes de servicio técnico":"Mis mensajes enviados";
  $("feedbackListSubtitle").textContent=isAdmin
    ?"Marca cada mensaje como revisado y, si quieres, deja una respuesta."
    :"Aquí puedes ver si el administrador ya revisó tu mensaje.";
  const d=await api("/api/feedback").catch(()=>({items:[]}));
  feedbackItems=d.items||[];
+ showFeedbackBadgeCount(feedbackItems);
  drawFeedbackList();
 }
 function drawFeedbackList(){
@@ -453,7 +467,7 @@ async function showView(view){
  document.querySelectorAll(".view").forEach(v=>v.classList.remove("active"));
  $(view).classList.add("active");
  document.querySelectorAll(".nav-btn").forEach(b=>b.classList.toggle("active",b.dataset.view===view));
- const titles={dashboard:"Resumen",new:"Nueva atención",records:"Atenciones registradas",report:"Informe mensual",feedback:"Sugerencias",users:"Usuarios del sistema"};
+ const titles={dashboard:"Resumen",new:"Nueva atención",records:"Atenciones registradas",report:"Informe mensual",feedback:"Servicio técnico",users:"Usuarios del sistema"};
  $("pageTitle").textContent=titles[view]||"";
  if(view==="dashboard"){await loadRecords($("dashUserFilter")?.value);renderDashboard()}
  if(view==="records"){await loadRecords($("recordUserFilter")?.value);renderRecords()}
@@ -639,11 +653,47 @@ window.editRecord=id=>{
  });
 };
 window.deleteRecord=async id=>{
- if(!confirm("¿Eliminar esta atención?"))return;
+ if(!confirm("¿Eliminar esta atención? Quedará en la papelera de reciclaje por si necesitas recuperarla."))return;
  try{
    await api("/api/records/"+encodeURIComponent(id),{method:"DELETE"});
    await loadRecords($("recordUserFilter")?.value);renderRecords();renderDashboard();
-   toast("Atención eliminada");
+   toast("Atención movida a la papelera");
+ }catch(err){toast(err.message||"No se pudo eliminar")}
+};
+
+/* ---------- Papelera de reciclaje ---------- */
+$("trashBtn").onclick=async()=>{
+ $("trashModal").classList.add("show");
+ await renderTrash();
+};
+$("closeTrash").onclick=()=>$("trashModal").classList.remove("show");
+async function renderTrash(){
+ const d=await api("/api/records/trash").catch(()=>({records:[]}));
+ const items=d.records||[];
+ if(!items.length){$("trashTable").innerHTML='<tbody><tr><td class="empty">La papelera está vacía.</td></tr></tbody>';return}
+ let html=`<thead><tr><th>Eliminado</th><th>Fecha atención</th><th>Nombre</th><th>DNI</th><th>Tipo</th><th>Servicio</th><th>Acciones</th></tr></thead><tbody>`;
+ items.sort((a,b)=>(b.deletedAt||"").localeCompare(a.deletedAt||"")).forEach(r=>{
+   const fecha=r.deletedAt?new Date(r.deletedAt).toLocaleDateString("es-PE",{day:"2-digit",month:"short",year:"numeric"}):"";
+   html+=`<tr><td>${fecha}</td><td>${r.date}</td><td>${escapeHtml(r.name||r.patient||"—")}</td><td>${escapeHtml(r.dni||"")}</td><td>${escapeHtml(r.type||"")}</td><td>${escapeHtml(r.service||"")}</td>
+     <td class="actions-cell"><button title="Restaurar" onclick="restoreRecord('${r.id}')">↩️ Restaurar</button><button title="Eliminar definitivamente" onclick="permanentlyDeleteRecord('${r.id}')">🗑️ Eliminar definitivo</button></td></tr>`;
+ });
+ html+="</tbody>";
+ $("trashTable").innerHTML=html;
+}
+window.restoreRecord=async id=>{
+ try{
+   await api(`/api/records/${encodeURIComponent(id)}/restore`,{method:"POST"});
+   toast("Atención restaurada");
+   await renderTrash();
+   await loadRecords($("recordUserFilter")?.value);renderRecords();renderDashboard();
+ }catch(err){toast(err.message||"No se pudo restaurar")}
+};
+window.permanentlyDeleteRecord=async id=>{
+ if(!confirm("¿Eliminar esta atención de forma DEFINITIVA? Esto ya no se puede deshacer."))return;
+ try{
+   await api(`/api/records/${encodeURIComponent(id)}/permanent`,{method:"DELETE"});
+   toast("Atención eliminada definitivamente");
+   await renderTrash();
  }catch(err){toast(err.message||"No se pudo eliminar")}
 };
 
@@ -729,8 +779,10 @@ function renderReport(){
    <div class="age-grid">${ageRows.map(([l,c])=>`<div class="age-cell"><span>${l}</span><b>${c||""}</b></div>`).join("")}</div>
    ${otrosLine}
    <div class="age-total"><strong>Total de pacientes por edad:</strong> ${ageTotal}</div>
-   <div class="report-grid-3">
-     <div><h4>POR DIAGNÓSTICO</h4>${miniTable(diagRows,"Diagnóstico")}</div>
+   <div class="report-diag-block">
+     <h4>POR DIAGNÓSTICO</h4>${miniTable(diagRows,"Diagnóstico")}
+   </div>
+   <div class="report-grid-2col">
      <div><h4>POR PROVINCIA</h4>${miniTable(provinceRows,"Provincia")}</div>
      <div><h4>POR DISTRITO</h4>${miniTable(districtRows,"Distrito")}</div>
    </div>

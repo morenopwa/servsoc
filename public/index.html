@@ -45,7 +45,7 @@
       <button class="nav-btn" data-view="new">➕ Nueva atención</button>
       <button class="nav-btn" data-view="records">👥 Atenciones</button>
       <button class="nav-btn" data-view="report">📑 Informe mensual</button>
-      <button class="nav-btn" data-view="feedback">💬 Sugerencias</button>
+      <button class="nav-btn" data-view="feedback">🛠️ Servicio técnico <span id="feedbackBadge" class="nav-badge" style="display:none"></span></button>
       <button class="nav-btn admin-only" data-view="users" style="display:none">🛡️ Usuarios</button>
     </nav>
     <div class="side-footer">
@@ -207,6 +207,7 @@
             <select id="recordUserFilter" class="admin-only" style="display:none">
               <option value="">Todos los usuarios</option>
             </select>
+            <button class="secondary" id="trashBtn" type="button">🗑️ Papelera</button>
           </div>
         </div>
         <div class="table-wrap">
@@ -244,7 +245,7 @@
       <div class="panel" id="feedbackFormPanel">
         <div class="panel-head">
           <div>
-            <h2>Enviar sugerencia o queja</h2>
+            <h2>Enviar mensaje a servicio técnico</h2>
             <p class="muted">Este mensaje lo revisará el administrador del sistema. Puedes ver el estado de tus mensajes enviados más abajo.</p>
           </div>
         </div>
@@ -265,7 +266,7 @@
       <div class="panel">
         <div class="panel-head">
           <div>
-            <h2 id="feedbackListTitle">Mis sugerencias enviadas</h2>
+            <h2 id="feedbackListTitle">Mis mensajes enviados</h2>
             <p class="muted" id="feedbackListSubtitle">Aquí puedes ver si el administrador ya revisó tu mensaje.</p>
           </div>
           <select id="feedbackStatusFilter" class="admin-only" style="display:none">
@@ -312,6 +313,19 @@
       </div>
     </section>
   </main>
+
+  <div id="trashModal" class="modal-overlay">
+    <div class="modal-box" style="max-width:800px">
+      <div class="modal-head">
+        <h2>🗑️ Papelera de reciclaje</h2>
+        <button class="icon-btn" id="closeTrash" type="button" aria-label="Cerrar">✖</button>
+      </div>
+      <p class="muted">Aquí quedan las atenciones eliminadas. Puedes restaurarlas o eliminarlas de forma definitiva (esto último ya no se puede deshacer).</p>
+      <div class="table-wrap">
+        <table id="trashTable"></table>
+      </div>
+    </div>
+  </div>
 
   <div id="accountModal" class="modal-overlay">
     <div class="modal-box" style="max-width:420px">

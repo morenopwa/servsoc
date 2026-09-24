@@ -23,6 +23,10 @@ create table if not exists ss_records (
   updated_by text,
   updated_at timestamptz
 );
+-- Papelera de reciclaje: en vez de borrar de una vez, se marca la fecha/quién
+-- eliminó el registro. Así se puede restaurar si alguien se equivoca.
+alter table ss_records add column if not exists deleted_at timestamptz;
+alter table ss_records add column if not exists deleted_by text;
 
 create table if not exists ss_feedback (
   id uuid primary key default gen_random_uuid(),

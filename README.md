@@ -100,6 +100,26 @@ manual, además de la base de datos en sí.
 | `PORT` | Puerto donde escucha el servidor | No (por defecto 3000; Render la define solo) |
 | `ADMIN_DNI` | DNI del administrador que se crea la primera vez | No (por defecto `00000000`) |
 | `CERT_PATH`, `KEY_PATH` | Si quieres que el propio Node sirva HTTPS directamente (no hace falta con Render/Railway/Caddy) | No |
+| `RESEND_API_KEY` | API key de [resend.com](https://resend.com) para poder enviar el correo de aviso | No (si falta, simplemente no se envían avisos) |
+| `NOTIFY_EMAIL` | A qué correo(s) avisar cuando alguien envía un mensaje a "Servicio técnico". Varios, separados por coma | No |
+| `NOTIFY_FROM` | Correo remitente. Si no configuras un dominio propio en Resend, deja `onboarding@resend.dev` | No (por defecto `onboarding@resend.dev`) |
+
+### Activar el aviso por correo cuando llega un mensaje a "Servicio técnico"
+1. Crea una cuenta gratuita en [resend.com](https://resend.com) (100 correos/día gratis, sin tarjeta).
+2. En el panel de Resend, ve a "API Keys" → crea una y cópiala.
+3. En Render → tu servicio → Environment, agrega:
+   - `RESEND_API_KEY` = la key que copiaste
+   - `NOTIFY_EMAIL` = el correo donde quieres recibir los avisos
+4. Importante: sin verificar un dominio propio en Resend, el remitente por
+   defecto (`onboarding@resend.dev`) **solo puede enviar correos a la misma
+   dirección de correo con la que te registraste en Resend**. Si quieres
+   avisar a un correo distinto (por ejemplo, el del hospital), verifica tu
+   propio dominio en Resend ("Domains" → "Add Domain") y luego usa
+   `NOTIFY_FROM` con una dirección de ese dominio (ej. `avisos@tuhospital.pe`).
+5. Guarda los cambios; Render reinicia el servicio solo. No hace falta tocar
+   código para activar o desactivar esto: si `RESEND_API_KEY` o `NOTIFY_EMAIL`
+   no están configuradas, el sistema simplemente no manda avisos (todo lo
+   demás sigue funcionando igual).
 
 ## Usuarios y sesiones
 - El primer usuario (administrador) se crea solo, la primera vez que el

@@ -112,11 +112,17 @@ function recordFromRow(row) {
     createdBy: row.created_by || undefined,
     createdAt: row.created_at || undefined,
     updatedBy: row.updated_by || undefined,
-    updatedAt: row.updated_at || undefined
+    updatedAt: row.updated_at || undefined,
+    deletedAt: row.deleted_at || undefined,
+    deletedBy: row.deleted_by || undefined
   });
 }
 async function listRecords() {
-  const rows = await rest('ss_records?select=*&order=created_at.asc');
+  const rows = await rest('ss_records?select=*&deleted_at=is.null&order=created_at.asc');
+  return rows.map(recordFromRow);
+}
+async function listDeletedRecords() {
+  const rows = await rest('ss_records?select=*&deleted_at=not.is.null&order=deleted_at.desc');
   return rows.map(recordFromRow);
 }
 async function findRecordById(id) {
@@ -138,6 +144,18 @@ async function updateRecord(id, record, username) {
     body: { payload: record, updated_by: username, updated_at: new Date().toISOString() }
   });
   return recordFromRow(rows[0]);
+}
+async function softDeleteRecord(id, username) {
+  await rest(`ss_records?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: { deleted_at: new Date().toISOString(), deleted_by: username }
+  });
+}
+async function restoreRecord(id) {
+  await rest(`ss_records?id=eq.${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: { deleted_at: null, deleted_by: null }
+  });
 }
 async function removeRecord(id) {
   await rest(`ss_records?id=eq.${encodeURIComponent(id)}`, { method: 'DELETE' });
@@ -207,6 +225,7 @@ async function removeFeedback(id) {
 
 module.exports = {
   listUsers, findUserByDni, findUserById, createUser, patchUser, removeUser,
-  listRecords, findRecordById, insertRecord, updateRecord, removeRecord, replaceAllRecords,
+  listRecords, listDeletedRecords, findRecordById, insertRecord, updateRecord,
+  softDeleteRecord, restoreRecord, removeRecord, replaceAllRecords,
   listFeedback, insertFeedback, patchFeedback, removeFeedback
 };
