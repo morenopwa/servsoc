@@ -264,3 +264,12 @@ td[data-tip]:hover,tr[data-tip]:hover td,.age-cell[data-tip]:hover,.age-otros[da
 .tip-line2{color:#94a3b8;font-size:11.5px}
 .tip-detail{color:#cbd5e1;font-size:11.5px;margin-top:1px}
 @media print{.cell-tip{display:none!important}}
+
+/* ---------- Tabla PROCEDENCIA (Provincia + Distrito) ---------- */
+.procedencia-table{margin-top:6px}
+.procedencia-table th,.procedencia-table td{border:1px solid #94a3b8;text-align:center}
+.procedencia-table .proc-title{background:#e2e8f0;font-size:13px;letter-spacing:.5px;text-align:center}
+.procedencia-table td.proc-name{text-align:left}
+.procedencia-table tr{break-inside:avoid;page-break-inside:avoid}
+.procedencia-table .mini-table-total td{border-top:2px solid #64748b}
+.report-procedencia{margin-top:6px}

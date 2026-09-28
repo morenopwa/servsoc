@@ -836,6 +836,24 @@ function miniTable(rows,label){
  return`<table class="mini-table"><thead><tr><th>${label}</th><th>Cantidad</th></tr></thead><tbody>${rows.map(x=>`<tr${tipAttr("r",`${label}: ${x.label}`,plainEntries(x.recs))}><td>${escapeHtml(x.label)}</td><td>${x.count}</td></tr>`).join("")}</tbody><tfoot><tr class="mini-table-total"${tipAttr("r",`${label}: todos`,plainEntries(allRecs))}><td>Total</td><td>${total}</td></tr></tfoot></table>`;
 }
 
+// Tabla única "PROCEDENCIA": Provincia y Distrito lado a lado, con TOTAL GENERAL de cada una
+function procedenciaTable(provRows,distRows){
+ if(!provRows.length&&!distRows.length)return`<p class="muted">Sin datos registrados este mes.</p>`;
+ const n=Math.max(provRows.length,distRows.length);
+ const half=(x,label)=>x
+   ?`<td class="proc-name"${tipAttr("r",`${label}: ${x.label}`,plainEntries(x.recs))}>${escapeHtml(x.label)}</td><td${tipAttr("r",`${label}: ${x.label}`,plainEntries(x.recs))}>${x.count}</td>`
+   :`<td class="proc-name"></td><td></td>`;
+ let body="";
+ for(let i=0;i<n;i++)body+=`<tr>${half(provRows[i],"Provincia")}${half(distRows[i],"Distrito")}</tr>`;
+ const totP=provRows.reduce((a,x)=>a+x.count,0), totD=distRows.reduce((a,x)=>a+x.count,0);
+ const tipP=tipAttr("r","Provincia: TOTAL GENERAL",plainEntries(provRows.flatMap(x=>x.recs)));
+ const tipD=tipAttr("r","Distrito: TOTAL GENERAL",plainEntries(distRows.flatMap(x=>x.recs)));
+ return`<table class="mini-table procedencia-table"><thead>
+   <tr><th colspan="4" class="proc-title">PROCEDENCIA</th></tr>
+   <tr><th>Provincia</th><th>Cantidad</th><th>Distrito</th><th>Cantidad</th></tr>
+ </thead><tbody>${body}</tbody><tfoot><tr class="mini-table-total"><td class="proc-name"${tipP}>TOTAL GENERAL</td><td${tipP}>${totP}</td><td class="proc-name"${tipD}>TOTAL GENERAL</td><td${tipD}>${totD}</td></tr></tfoot></table>`;
+}
+
 function renderReport(){
  tipReset("r");
  const month=$("reportMonth").value;
@@ -875,10 +893,7 @@ function renderReport(){
    <div class="report-diag-block">
      <h4>POR DIAGNÓSTICO</h4>${miniTable(diagRows,"Diagnóstico")}
    </div>
-   <div class="report-grid-2col">
-     <div><h4>POR PROVINCIA</h4>${miniTable(provinceRows,"Provincia")}</div>
-     <div><h4>POR DISTRITO</h4>${miniTable(districtRows,"Distrito")}</div>
-   </div>
+   <div class="report-procedencia">${procedenciaTable(provinceRows,districtRows)}</div>
  </div>
  <p class="muted no-print">Reporte generado por el sistema de control de atenciones.</p>`;
 }
