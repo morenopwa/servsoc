@@ -30,7 +30,7 @@ const COUNTRIES=[
  "Corea del Sur","India","Filipinas"
 ];
 const DEPARTMENTS_BY_COUNTRY={
- "Perú":["Amazonas","Áncash","Apurímac","Arequipa","Ayacucho","Cajamarca","Callao","Cusco","Huancavelica","Huánuco","Ica","Junín","La Libertad","Lambayeque","Lima","Loreto","Madre de Dios","Moquegua","Pasco","Piura","Puno","San Martín","Tacna","Tumbes","Ucayali"],
+ "Perú":["Amazonas","Áncash","Apurímac","Arequipa","Ayacucho","Cajamarca","Cusco","Huancavelica","Huánuco","Ica","Junín","La Libertad","Lambayeque","Lima","Loreto","Madre de Dios","Moquegua","Pasco","Piura","Puno","San Martín","Tacna","Tumbes","Ucayali"],
  "Colombia":["Amazonas","Antioquia","Arauca","Atlántico","Bolívar","Boyacá","Caldas","Caquetá","Casanare","Cauca","Cesar","Chocó","Córdoba","Cundinamarca","Guainía","Guaviare","Huila","La Guajira","Magdalena","Meta","Nariño","Norte de Santander","Putumayo","Quindío","Risaralda","San Andrés y Providencia","Santander","Sucre","Tolima","Valle del Cauca","Vaupés","Vichada","Bogotá D.C."],
  "Venezuela":["Amazonas","Anzoátegui","Apure","Aragua","Barinas","Bolívar","Carabobo","Cojedes","Delta Amacuro","Distrito Capital","Falcón","Guárico","Lara","Mérida","Miranda","Monagas","Nueva Esparta","Portuguesa","Sucre","Táchira","Trujillo","Vargas","Yaracuy","Zulia"],
  "Ecuador":["Azuay","Bolívar","Cañar","Carchi","Chimborazo","Cotopaxi","El Oro","Esmeraldas","Galápagos","Guayas","Imbabura","Loja","Los Ríos","Manabí","Morona Santiago","Napo","Orellana","Pastaza","Pichincha","Santa Elena","Santo Domingo de los Tsáchilas","Sucumbíos","Tungurahua","Zamora Chinchipe"],
@@ -204,8 +204,19 @@ async function api(path,options={}){
  }
  return data;
 }
+// Callao ya no es departamento ni provincia: pasa a ser un distrito de Lima.
+// Los registros antiguos se ajustan al mostrarlos (no se toca la base de datos hasta que se edite el registro).
+function normalizeCallao(r){
+ const country=(r.country||"").trim()||DEFAULT_COUNTRY;
+ if(country!==DEFAULT_COUNTRY)return r;
+ if((r.department||"").trim()==="Callao"||(r.province||"").trim()==="Callao"){
+   r.department="Lima";r.province="Lima";
+   if(!(r.district||"").trim())r.district="Callao";
+ }
+ return r;
+}
 async function loadRecords(filterDni){
- try{const qs=filterDni?`?user=${encodeURIComponent(filterDni)}`:"";const d=await api("/api/records"+qs);records=d.records||[]}
+ try{const qs=filterDni?`?user=${encodeURIComponent(filterDni)}`:"";const d=await api("/api/records"+qs);records=(d.records||[]).map(normalizeCallao)}
  catch(e){if(e.status!==401)toast(e.message||"No se pudieron cargar los datos")}
 }
 
@@ -540,14 +551,99 @@ function sumQtyField(rs,field){return rs.reduce((acc,r)=>acc+(Number(r[field])||
 function actionCount(rs,key){const q=QTY_ACTIONS[key];return q?sumQtyField(rs,q.qtyId):sumAction(rs,key)}
 function actionsTotal(rs){return ACTIONS.reduce((acc,[k])=>acc+actionCount(rs,k),0)}
 
+/* ---------- Tooltips: de qué registros sale cada número ---------- */
+const tipStore=new Map();let tipSeq=0;
+function tipReset(scope){[...tipStore.keys()].forEach(k=>{if(k.startsWith(scope+":"))tipStore.delete(k)});if(typeof hideCellTip==="function")hideCellTip()}
+function tipAttr(scope,title,entries){
+ if(!entries||!entries.length)return"";
+ const id=`${scope}:${++tipSeq}`;
+ tipStore.set(id,{title,entries});
+ return` data-tip="${id}"`;
+}
+function actionText(r){
+ return r.actions.map(k=>{
+   const l=(ACTIONS.find(x=>x[0]===k)||[])[1];if(!l)return null;
+   const q=QTY_ACTIONS[k];const n=q?Number(r[q.qtyId])||0:0;
+   return n>1?`${l} ×${n}`:l;
+ }).filter(Boolean).join(", ");
+}
+// Mismo orden que las columnas de las tablas: Atendidos, Total, 13 acciones, 5 morbilidades
+const TIP_COLS=[
+ {label:"Atendidos",fn:()=>1},
+ {label:"Total de acciones",fn:r=>actionsTotal([r]),detail:actionText},
+ ...ACTIONS.map(([k,l])=>({label:l,fn:r=>actionCount([r],k)})),
+ ...MORBIDITY.map(([k,l])=>({label:"Morbilidad: "+l,fn:r=>r.morbidity.includes(k)?1:0}))
+];
+function colEntries(rs,i){
+ const c=TIP_COLS[i];
+ return rs.map(r=>({r,n:c.fn(r),detail:c.detail?c.detail(r):""})).filter(e=>e.n>0);
+}
+function colValue(entries){return entries.reduce((acc,e)=>acc+e.n,0)}
+function plainEntries(rs){return rs.map(r=>({r,n:1}))}
+function tipHtml(t){
+ const total=t.entries.reduce((acc,e)=>acc+e.n,0);
+ const cnt=t.entries.length;
+ const head=`<div class="tip-head"><strong>${escapeHtml(t.title)}</strong><span>${cnt} registro${cnt===1?"":"s"}${total!==cnt?` · suma ${total}`:""}</span></div>`;
+ const rows=[...t.entries].sort((x,y)=>(x.r.date||"").localeCompare(y.r.date||"")||(x.r.name||"").localeCompare(y.r.name||"")).map(e=>{
+   const r=e.r;
+   const meta=[r.dni?"DNI "+r.dni:"",r.bed?"Cama "+r.bed:"",r.date,[r.type,r.service].filter(Boolean).join(" · ")].filter(Boolean).map(escapeHtml).join(" · ");
+   return`<li><div class="tip-line1"><b>${escapeHtml(r.name||r.patient||"Sin nombre")}</b>${e.n>1?`<em>×${e.n}</em>`:""}</div><div class="tip-line2">${meta}</div>${e.detail?`<div class="tip-detail">${escapeHtml(e.detail)}</div>`:""}</li>`;
+ }).join("");
+ return head+`<ul class="tip-list">${rows}</ul>`;
+}
+(function setupCellTip(){
+ const tip=document.createElement("div");tip.id="cellTip";tip.className="cell-tip";document.body.appendChild(tip);
+ let showT=null,hideT=null,curEl=null;
+ function place(el){
+   const r=el.getBoundingClientRect();
+   tip.style.left="0px";tip.style.top="0px";
+   const tw=tip.offsetWidth,th=tip.offsetHeight,vw=window.innerWidth,vh=window.innerHeight,gap=6;
+   const left=Math.min(Math.max(8,r.left+r.width/2-tw/2),Math.max(8,vw-tw-8));
+   let top=r.bottom+gap;
+   if(top+th>vh-8){top=(r.top-th-gap>8)?r.top-th-gap:Math.max(8,vh-th-8)}
+   tip.style.left=left+"px";tip.style.top=top+"px";
+ }
+ function show(el){
+   const t=tipStore.get(el.getAttribute("data-tip"));if(!t)return;
+   curEl=el;tip.innerHTML=tipHtml(t);tip.scrollTop=0;tip.classList.add("show");place(el);
+ }
+ window.hideCellTip=function(){clearTimeout(showT);clearTimeout(hideT);tip.classList.remove("show");curEl=null};
+ const up=(e,sel)=>e.target&&e.target.closest?e.target.closest(sel):null;
+ document.addEventListener("mouseover",e=>{
+   const el=up(e,"[data-tip]");
+   if(el){clearTimeout(hideT);if(el===curEl)return;clearTimeout(showT);showT=setTimeout(()=>show(el),90);return}
+   if(up(e,"#cellTip"))clearTimeout(hideT);
+ });
+ document.addEventListener("mouseout",e=>{
+   const from=up(e,"[data-tip],#cellTip");if(!from)return;
+   const to=e.relatedTarget&&e.relatedTarget.closest?e.relatedTarget.closest("[data-tip],#cellTip"):null;
+   if(to===from)return;
+   clearTimeout(showT);hideT=setTimeout(window.hideCellTip,180);
+ });
+ // En pantallas táctiles: tocar la celda abre el detalle, tocar fuera lo cierra
+ document.addEventListener("click",e=>{
+   const el=up(e,"[data-tip]");
+   if(el){clearTimeout(showT);clearTimeout(hideT);show(el);return}
+   if(!up(e,"#cellTip"))window.hideCellTip();
+ });
+ document.addEventListener("keydown",e=>{if(e.key==="Escape")window.hideCellTip()});
+ window.addEventListener("scroll",e=>{if(!(e.target&&e.target.id==="cellTip"))window.hideCellTip()},true);
+ window.addEventListener("resize",()=>window.hideCellTip());
+})();
+
 function renderDashboard(){
+ tipReset("d");
  const unit=dashUnit||Object.keys(UNITS)[0];
  const types=UNITS[unit];
  const rs=filtered($("dashMonth").value).filter(r=>types.includes(r.type));
- const t1=rs.filter(r=>r.type===types[0]).length, t2=rs.filter(r=>r.type===types[1]).length;
- $("summaryCards").innerHTML=[
-  ["👥","Pacientes / atenciones",rs.length],["🏥",types[0],t1],["🛏️",types[1],t2],["📝","Entrevistas",actionCount(rs,"interview")]
- ].map(x=>`<div class="card"><div class="label">${x[0]} ${x[1]}</div><div class="value">${x[2]}</div></div>`).join("");
+ const rs1=rs.filter(r=>r.type===types[0]), rs2=rs.filter(r=>r.type===types[1]);
+ const cards=[
+  ["👥","Pacientes / atenciones",rs.length,plainEntries(rs)],
+  ["🏥",types[0],rs1.length,plainEntries(rs1)],
+  ["🛏️",types[1],rs2.length,plainEntries(rs2)],
+  ["📝","Entrevistas",actionCount(rs,"interview"),colEntries(rs,2)]
+ ];
+ $("summaryCards").innerHTML=cards.map(x=>`<div class="card"${tipAttr("d",x[1]+" — "+unit,x[3])}><div class="label">${x[0]} ${x[1]}</div><div class="value">${x[2]}</div></div>`).join("");
  $("dashCount").textContent=`${rs.length} registros`;
  const cols=["Atendidos","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
  let html="<thead><tr><th>Servicio</th>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr></thead><tbody>";
@@ -555,8 +651,9 @@ function renderDashboard(){
    for(const service of SERVICES[type]){
      const s=rs.filter(r=>r.type===type&&r.service===service);
      if(!s.length) continue;
-     const vals=[s.length,actionsTotal(s),...ACTIONS.map(([k])=>actionCount(s,k)),...MORBIDITY.map(([k])=>sumMorbidity(s,k))];
-     html+=`<tr><td>${type} · ${service}</td>${vals.map(v=>`<td>${v||""}</td>`).join("")}</tr>`;
+     const entries=TIP_COLS.map((_,i)=>colEntries(s,i));
+     const vals=entries.map(colValue);
+     html+=`<tr><td>${type} · ${service}</td>${vals.map((v,i)=>`<td${tipAttr("d",`${TIP_COLS[i].label} — ${type} · ${service}`,entries[i])}>${v||""}</td>`).join("")}</tr>`;
    }
  }
  if(!rs.length) html+=`<tr><td colspan="${cols.length+1}" class="empty">No hay atenciones registradas para esta unidad en este mes.</td></tr>`;
@@ -703,31 +800,34 @@ function reportTable(type,rs,subtotalNum){
  const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
  let h=`<table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
  let totals=Array(headers.length-1).fill(0);
+ const subEntries=TIP_COLS.map(()=>[]);
  for(const service of services){
    const s=rs.filter(r=>r.type===type&&r.service===service);
-   const vals=[s.length,actionsTotal(s),...ACTIONS.map(([k])=>actionCount(s,k)),...MORBIDITY.map(([k])=>sumMorbidity(s,k))];
+   const entries=TIP_COLS.map((_,i)=>colEntries(s,i));
+   entries.forEach((en,i)=>subEntries[i].push(...en));
+   const vals=entries.map(colValue);
    vals.forEach((v,i)=>totals[i]+=v);
-   h+=`<tr><td>${service}</td>${vals.map(v=>`<td>${v||""}</td>`).join("")}</tr>`;
+   h+=`<tr><td>${service}</td>${vals.map((v,i)=>`<td${tipAttr("r",`${TIP_COLS[i].label} — ${type} · ${service}`,entries[i])}>${v||""}</td>`).join("")}</tr>`;
  }
- h+=`<tr class="subtotal"><td>SUBTOTAL ${subtotalNum}</td>${totals.map(v=>`<td>${v||""}</td>`).join("")}</tr></tbody></table>`;
- return {html:`<div class="report-table-wrap">${h}</div>`,totals};
+ h+=`<tr class="subtotal"><td>SUBTOTAL ${subtotalNum}</td>${totals.map((v,i)=>`<td${tipAttr("r",`${TIP_COLS[i].label} — SUBTOTAL ${subtotalNum} (${type})`,subEntries[i])}>${v||""}</td>`).join("")}</tr></tbody></table>`;
+ return {html:`<div class="report-table-wrap">${h}</div>`,totals,subEntries};
 }
 
 function buildAgeRows(rs){
- const buckets={m:0};
- for(let i=1;i<=MAX_AGE;i++)buckets[i]=0;
+ const buckets={m:[]};
+ for(let i=1;i<=MAX_AGE;i++)buckets[i]=[];
  const otros=[];
  rs.forEach(r=>{
    const info=ageInfo(r);
    if(!info)return;
-   if(info.type==="m")buckets.m++;
-   else if(info.type==="y")buckets[info.value]++;
-   else otros.push(info.value);
+   if(info.type==="m")buckets.m.push({r,n:1});
+   else if(info.type==="y")buckets[info.value].push({r,n:1});
+   else otros.push({r,n:1,detail:`${info.value} años`,age:info.value});
  });
- const rows=[["0 a 11 meses",buckets.m]];
- for(let i=1;i<=MAX_AGE;i++)rows.push([`${i} ${i===1?"año":"años"}`,buckets[i]]);
- otros.sort((a,b)=>a-b);
- return{rows,otrosCount:otros.length,otrosAges:otros};
+ const rows=[["0 a 11 meses",buckets.m.length,buckets.m]];
+ for(let i=1;i<=MAX_AGE;i++)rows.push([`${i} ${i===1?"año":"años"}`,buckets[i].length,buckets[i]]);
+ otros.sort((a,b)=>a.age-b.age);
+ return{rows,otrosCount:otros.length,otrosAges:otros.map(o=>o.age),otrosEntries:otros};
 }
 function groupCount(rs,field){
  const map=new Map();
@@ -735,18 +835,20 @@ function groupCount(rs,field){
    const raw=(r[field]||"").trim();
    if(!raw)return;
    const key=raw.toLowerCase();
-   if(!map.has(key))map.set(key,{label:raw,count:0});
-   map.get(key).count++;
+   if(!map.has(key))map.set(key,{label:raw,count:0,recs:[]});
+   const g=map.get(key);g.count++;g.recs.push(r);
  });
  return[...map.values()].sort((a,b)=>b.count-a.count||a.label.localeCompare(b.label));
 }
 function miniTable(rows,label){
  if(!rows.length)return`<p class="muted">Sin datos registrados este mes.</p>`;
  const total=rows.reduce((acc,x)=>acc+x.count,0);
- return`<table class="mini-table"><thead><tr><th>${label}</th><th>Cantidad</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${escapeHtml(x.label)}</td><td>${x.count}</td></tr>`).join("")}</tbody><tfoot><tr class="mini-table-total"><td>Total</td><td>${total}</td></tr></tfoot></table>`;
+ const allRecs=rows.flatMap(x=>x.recs);
+ return`<table class="mini-table"><thead><tr><th>${label}</th><th>Cantidad</th></tr></thead><tbody>${rows.map(x=>`<tr${tipAttr("r",`${label}: ${x.label}`,plainEntries(x.recs))}><td>${escapeHtml(x.label)}</td><td>${x.count}</td></tr>`).join("")}</tbody><tfoot><tr class="mini-table-total"${tipAttr("r",`${label}: todos`,plainEntries(allRecs))}><td>Total</td><td>${total}</td></tr></tfoot></table>`;
 }
 
 function renderReport(){
+ tipReset("r");
  const month=$("reportMonth").value;
  const unit=reportUnit||Object.keys(UNITS)[0];
  const types=UNITS[unit];
@@ -758,14 +860,16 @@ function renderReport(){
  const periodLabel=`Del ${fmtLong(startDate)} al ${fmtLong(endDate)}`;
  const a=reportTable(types[0],rs,1), b=reportTable(types[1],rs,2);
  const grand=a.totals.map((v,i)=>v+b.totals[i]);
+ const grandEntries=a.subEntries.map((e,i)=>e.concat(b.subEntries[i]));
  const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
- const {rows:ageRows,otrosCount,otrosAges}=buildAgeRows(rs);
+ const {rows:ageRows,otrosCount,otrosAges,otrosEntries}=buildAgeRows(rs);
  const ageTotal=ageRows.reduce((acc,[,c])=>acc+c,0)+otrosCount;
+ const ageAllEntries=[...ageRows.flatMap(([,,en])=>en),...otrosEntries];
  const diagRows=groupCount(rs,"diagnosis");
  const provinceRows=groupCount(rs,"province");
  const districtRows=groupCount(rs,"district");
  const otrosLine=otrosCount
-   ?`<div class="age-otros"><strong>Otros (mayores de ${MAX_AGE} años):</strong> ${otrosCount} paciente(s) — edades: ${otrosAges.join(", ")} años</div>`
+   ?`<div class="age-otros"${tipAttr("r",`Otros (mayores de ${MAX_AGE} años)`,otrosEntries)}><strong>Otros (mayores de ${MAX_AGE} años):</strong> ${otrosCount} paciente(s) — edades: ${otrosAges.join(", ")} años</div>`
    :`<div class="age-otros"><strong>Otros (mayores de ${MAX_AGE} años):</strong> 0 pacientes</div>`;
  $("reportContent").innerHTML=`
  <div class="report-title"><h2>INFORME DE PRODUCCIÓN DEL DEPARTAMENTO DE SERVICIO SOCIAL</h2><h3>UNIDAD: ${unit.toUpperCase()}</h3></div>
@@ -773,12 +877,12 @@ function renderReport(){
  <h4>${types[0].toUpperCase()}</h4>${a.html}
  <h4>${types[1].toUpperCase()}</h4>${b.html}
  <h4>TOTAL GENERAL (Subtotal 1 + Subtotal 2)</h4>
- <div class="report-table-wrap"><table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody><tr class="grand"><td>TOTAL GENERAL</td>${grand.map(v=>`<td>${v||""}</td>`).join("")}</tr></tbody></table></div>
+ <div class="report-table-wrap"><table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody><tr class="grand"><td>TOTAL GENERAL</td>${grand.map((v,i)=>`<td${tipAttr("r",`${TIP_COLS[i].label} — TOTAL GENERAL`,grandEntries[i])}>${v||""}</td>`).join("")}</tr></tbody></table></div>
  <div class="report-page2">
    <h4>POBLACIÓN ATENDIDA POR EDAD</h4>
-   <div class="age-grid">${ageRows.map(([l,c])=>`<div class="age-cell"><span>${l}</span><b>${c||""}</b></div>`).join("")}</div>
+   <div class="age-grid">${ageRows.map(([l,c,en])=>`<div class="age-cell"${tipAttr("r",`Edad: ${l}`,en)}><span>${l}</span><b>${c||""}</b></div>`).join("")}</div>
    ${otrosLine}
-   <div class="age-total"><strong>Total de pacientes por edad:</strong> ${ageTotal}</div>
+   <div class="age-total"${tipAttr("r","Pacientes con edad registrada",ageAllEntries)}><strong>Total de pacientes por edad:</strong> ${ageTotal}</div>
    <div class="report-diag-block">
      <h4>POR DIAGNÓSTICO</h4>${miniTable(diagRows,"Diagnóstico")}
    </div>
@@ -1006,7 +1110,7 @@ function rowToRecord(row){
  Object.values(QTY_ACTIONS).forEach(q=>{
    rec[q.qtyId]=get(q.excelLabel)===""?0:Math.max(1,Number(get(q.excelLabel))||1);
  });
- return rec;
+ return normalizeCallao(rec);
 }
 $("backupBtn").onclick=async ()=>{
  await loadRecords();

@@ -246,3 +246,21 @@ td:first-child,th:first-child{text-align:left}
   .report-table th{font-size:11px;font-weight:800}
   .age-grid{grid-template-columns:repeat(5,1fr)}
 }
+
+/* ---------- Tooltip: registros que componen cada número ---------- */
+[data-tip]{cursor:help}
+td[data-tip]:hover,tr[data-tip]:hover td,.age-cell[data-tip]:hover,.age-otros[data-tip]:hover,.age-total[data-tip]:hover{background:#dbeafe}
+.card[data-tip]:hover{border-color:#93c5fd;box-shadow:0 3px 12px rgba(37,99,235,.18)}
+.cell-tip{display:none;position:fixed;z-index:300;width:max-content;max-width:min(380px,calc(100vw - 16px));max-height:min(320px,60vh);overflow:auto;background:#0f172a;color:#e2e8f0;border-radius:10px;box-shadow:0 12px 32px rgba(15,23,42,.35);padding:10px 12px;font-size:12.5px;font-weight:400;text-align:left;white-space:normal;line-height:1.35}
+.cell-tip.show{display:block}
+.tip-head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;border-bottom:1px solid #334155;padding-bottom:6px;margin-bottom:2px}
+.tip-head strong{color:#fff;font-size:12.5px}
+.tip-head span{color:#94a3b8;font-size:11.5px;white-space:nowrap}
+.tip-list{list-style:none;margin:0;padding:0}
+.tip-list li{padding:6px 0;border-bottom:1px solid #1e293b}
+.tip-list li:last-child{border-bottom:0;padding-bottom:0}
+.tip-line1 b{color:#fff;font-weight:700}
+.tip-line1 em{color:#93c5fd;font-style:normal;font-weight:800;margin-left:6px}
+.tip-line2{color:#94a3b8;font-size:11.5px}
+.tip-detail{color:#cbd5e1;font-size:11.5px;margin-top:1px}
+@media print{.cell-tip{display:none!important}}
