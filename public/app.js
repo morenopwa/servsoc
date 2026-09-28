@@ -30,7 +30,7 @@ const COUNTRIES=[
  "Corea del Sur","India","Filipinas"
 ];
 const DEPARTMENTS_BY_COUNTRY={
- "Perú":["Amazonas","Áncash","Apurímac","Arequipa","Ayacucho","Cajamarca","Cusco","Huancavelica","Huánuco","Ica","Junín","La Libertad","Lambayeque","Lima","Loreto","Madre de Dios","Moquegua","Pasco","Piura","Puno","San Martín","Tacna","Tumbes","Ucayali"],
+ "Perú":["Amazonas","Áncash","Apurímac","Arequipa","Ayacucho","Cajamarca","Callao","Cusco","Huancavelica","Huánuco","Ica","Junín","La Libertad","Lambayeque","Lima","Loreto","Madre de Dios","Moquegua","Pasco","Piura","Puno","San Martín","Tacna","Tumbes","Ucayali"],
  "Colombia":["Amazonas","Antioquia","Arauca","Atlántico","Bolívar","Boyacá","Caldas","Caquetá","Casanare","Cauca","Cesar","Chocó","Córdoba","Cundinamarca","Guainía","Guaviare","Huila","La Guajira","Magdalena","Meta","Nariño","Norte de Santander","Putumayo","Quindío","Risaralda","San Andrés y Providencia","Santander","Sucre","Tolima","Valle del Cauca","Vaupés","Vichada","Bogotá D.C."],
  "Venezuela":["Amazonas","Anzoátegui","Apure","Aragua","Barinas","Bolívar","Carabobo","Cojedes","Delta Amacuro","Distrito Capital","Falcón","Guárico","Lara","Mérida","Miranda","Monagas","Nueva Esparta","Portuguesa","Sucre","Táchira","Trujillo","Vargas","Yaracuy","Zulia"],
  "Ecuador":["Azuay","Bolívar","Cañar","Carchi","Chimborazo","Cotopaxi","El Oro","Esmeraldas","Galápagos","Guayas","Imbabura","Loja","Los Ríos","Manabí","Morona Santiago","Napo","Orellana","Pastaza","Pichincha","Santa Elena","Santo Domingo de los Tsáchilas","Sucumbíos","Tungurahua","Zamora Chinchipe"],
@@ -204,19 +204,8 @@ async function api(path,options={}){
  }
  return data;
 }
-// Callao ya no es departamento ni provincia: pasa a ser un distrito de Lima.
-// Los registros antiguos se ajustan al mostrarlos (no se toca la base de datos hasta que se edite el registro).
-function normalizeCallao(r){
- const country=(r.country||"").trim()||DEFAULT_COUNTRY;
- if(country!==DEFAULT_COUNTRY)return r;
- if((r.department||"").trim()==="Callao"||(r.province||"").trim()==="Callao"){
-   r.department="Lima";r.province="Lima";
-   if(!(r.district||"").trim())r.district="Callao";
- }
- return r;
-}
 async function loadRecords(filterDni){
- try{const qs=filterDni?`?user=${encodeURIComponent(filterDni)}`:"";const d=await api("/api/records"+qs);records=(d.records||[]).map(normalizeCallao)}
+ try{const qs=filterDni?`?user=${encodeURIComponent(filterDni)}`:"";const d=await api("/api/records"+qs);records=d.records||[]}
  catch(e){if(e.status!==401)toast(e.message||"No se pudieron cargar los datos")}
 }
 
@@ -866,7 +855,7 @@ function renderReport(){
  const ageTotal=ageRows.reduce((acc,[,c])=>acc+c,0)+otrosCount;
  const ageAllEntries=[...ageRows.flatMap(([,,en])=>en),...otrosEntries];
  const diagRows=groupCount(rs,"diagnosis");
- const provinceRows=groupCount(rs,"province");
+ const provinceRows=groupCount(rs,"province").filter(x=>!["callao","lima"].includes(x.label.trim().toLowerCase()));
  const districtRows=groupCount(rs,"district");
  const otrosLine=otrosCount
    ?`<div class="age-otros"${tipAttr("r",`Otros (mayores de ${MAX_AGE} años)`,otrosEntries)}><strong>Otros (mayores de ${MAX_AGE} años):</strong> ${otrosCount} paciente(s) — edades: ${otrosAges.join(", ")} años</div>`
@@ -1110,7 +1099,7 @@ function rowToRecord(row){
  Object.values(QTY_ACTIONS).forEach(q=>{
    rec[q.qtyId]=get(q.excelLabel)===""?0:Math.max(1,Number(get(q.excelLabel))||1);
  });
- return normalizeCallao(rec);
+ return rec;
 }
 $("backupBtn").onclick=async ()=>{
  await loadRecords();
