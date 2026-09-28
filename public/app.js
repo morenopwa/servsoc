@@ -76,7 +76,7 @@ function setupUnitTabs(containerId,getUnit,setUnit,onChange){
 setupUnitTabs("dashUnitTabs",()=>dashUnit,u=>dashUnit=u,()=>renderDashboard());
 setupUnitTabs("reportUnitTabs",()=>reportUnit,u=>reportUnit=u,()=>renderReport());
 
-function toast(msg){$("toast").textContent=msg;$("toast").classList.add("toast-show");setTimeout(()=>$("toast").classList.remove("toast-show"),2400)}
+function toast(msg,ms){$("toast").textContent=msg;$("toast").classList.add("toast-show");clearTimeout(toast._t);toast._t=setTimeout(()=>$("toast").classList.remove("toast-show"),ms||2400)}
 function monthOf(r){return r.date.slice(0,7)}
 function reportDateRange(monthStr){
  // El "mes" del informe va del 26 del mes anterior al 25 del mes seleccionado.
@@ -298,7 +298,13 @@ $("userMenuBtn").onclick=()=>{
  $("accountError").textContent="";
  $("accountName").value=currentUserInfo?currentUserInfo.name:"";
  $("accountDniValue").textContent=currentUserInfo?currentUserInfo.dni:"—";
+ $("cellTipToggle").checked=tipEnabled();
  $("accountModal").classList.add("show");
+};
+$("cellTipToggle").onchange=e=>{
+ setTipEnabled(e.target.checked);
+ document.documentElement.classList.toggle("tips-off",!e.target.checked);
+ toast(e.target.checked?"Detalle de registros activado":"Detalle de registros desactivado");
 };
 $("closeAccount").onclick=()=>$("accountModal").classList.remove("show");
 $("accountForm").onsubmit=async e=>{
@@ -580,7 +586,11 @@ function tipHtml(t){
  }).join("");
  return head+`<ul class="tip-list">${rows}</ul>`;
 }
+const TIP_PREF_KEY="cellTipEnabled";
+function tipEnabled(){const v=localStorage.getItem(TIP_PREF_KEY);return v===null?true:v==="1"}
+function setTipEnabled(on){localStorage.setItem(TIP_PREF_KEY,on?"1":"0");if(!on&&typeof hideCellTip==="function")hideCellTip()}
 (function setupCellTip(){
+document.documentElement.classList.toggle("tips-off",!tipEnabled());
  const tip=document.createElement("div");tip.id="cellTip";tip.className="cell-tip";document.body.appendChild(tip);
  let showT=null,hideT=null,curEl=null;
  function place(el){
@@ -593,12 +603,14 @@ function tipHtml(t){
    tip.style.left=left+"px";tip.style.top=top+"px";
  }
  function show(el){
+   if(!tipEnabled())return;
    const t=tipStore.get(el.getAttribute("data-tip"));if(!t)return;
    curEl=el;tip.innerHTML=tipHtml(t);tip.scrollTop=0;tip.classList.add("show");place(el);
  }
  window.hideCellTip=function(){clearTimeout(showT);clearTimeout(hideT);tip.classList.remove("show");curEl=null};
  const up=(e,sel)=>e.target&&e.target.closest?e.target.closest(sel):null;
  document.addEventListener("mouseover",e=>{
+   if(!tipEnabled())return;
    const el=up(e,"[data-tip]");
    if(el){clearTimeout(hideT);if(el===curEl)return;clearTimeout(showT);showT=setTimeout(()=>show(el),90);return}
    if(up(e,"#cellTip"))clearTimeout(hideT);
@@ -611,6 +623,7 @@ function tipHtml(t){
  });
  // En pantallas táctiles: tocar la celda abre el detalle, tocar fuera lo cierra
  document.addEventListener("click",e=>{
+   if(!tipEnabled())return;
    const el=up(e,"[data-tip]");
    if(el){clearTimeout(showT);clearTimeout(hideT);show(el);return}
    if(!up(e,"#cellTip"))window.hideCellTip();
@@ -635,14 +648,14 @@ function renderDashboard(){
  $("summaryCards").innerHTML=cards.map(x=>`<div class="card"${tipAttr("d",x[1]+" — "+unit,x[3])}><div class="label">${x[0]} ${x[1]}</div><div class="value">${x[2]}</div></div>`).join("");
  $("dashCount").textContent=`${rs.length} registros`;
  const cols=["Atendidos","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
- let html="<thead><tr><th>Servicio</th>"+cols.map(c=>`<th>${c}</th>`).join("")+"</tr></thead><tbody>";
+ let html="<thead><tr><th>Servicio</th>"+cols.map(c=>`<th${c==="Total"?' class="total-col"':""}>${c}</th>`).join("")+"</tr></thead><tbody>";
  for(const type of types){
    for(const service of SERVICES[type]){
      const s=rs.filter(r=>r.type===type&&r.service===service);
      if(!s.length) continue;
      const entries=TIP_COLS.map((_,i)=>colEntries(s,i));
      const vals=entries.map(colValue);
-     html+=`<tr><td>${type} · ${service}</td>${vals.map((v,i)=>`<td${tipAttr("d",`${TIP_COLS[i].label} — ${type} · ${service}`,entries[i])}>${v||""}</td>`).join("")}</tr>`;
+     html+=`<tr><td>${type} · ${service}</td>${vals.map((v,i)=>`<td${i===1?' class="total-col"':""}${tipAttr("d",`${TIP_COLS[i].label} — ${type} · ${service}`,entries[i])}>${v||""}</td>`).join("")}</tr>`;
    }
  }
  if(!rs.length) html+=`<tr><td colspan="${cols.length+1}" class="empty">No hay atenciones registradas para esta unidad en este mes.</td></tr>`;
@@ -705,6 +718,14 @@ $("attentionForm").onsubmit=async e=>{
    r[q.qtyId]=$(q.checkboxId).checked?(Math.max(1,Number($(q.qtyId).value)||1)):0;
  });
  if(!r.type||!r.service){toast("Selecciona tipo y servicio");return}
+ const dniKey=r.dni.toLowerCase().replace(/[.\-\s]/g,"");
+ if(dniKey&&dniKey!=="sd"&&dniKey!=="s/d"){
+   const dup=records.find(x=>x.id!==r.id&&(x.dni||"").toLowerCase().replace(/[.\-\s]/g,"")===dniKey&&x.date===r.date&&x.type===r.type&&x.service===r.service);
+   if(dup){
+     toast(`Ya existe una atención con este DNI el ${dup.date} en ${dup.type} · ${dup.service} (${dup.name||"sin nombre"}). Edítala en vez de duplicarla.`,5000);
+     return;
+   }
+ }
  try{
    await api("/api/records",{method:"POST",body:r});
    toast(existing?"Atención actualizada":"Atención registrada");
@@ -787,7 +808,7 @@ window.permanentlyDeleteRecord=async id=>{
 function reportTable(type,rs,subtotalNum){
  const services=SERVICES[type];
  const headers=["Servicio","Atend.","Total","Entrev.","V.D.","Reins.","Gest.","Interc.","Inf. social","Acta","Ficha","FESE","SIS","Consej.","Orient.","Charla","Salud","Econ.","Fam.","Viv.","Legal"];
- let h=`<table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody>`;
+ let h=`<table class="report-table"><thead><tr>${headers.map(x=>`<th${x==="Total"?' class="total-col"':""}>${x}</th>`).join("")}</tr></thead><tbody>`;
  let totals=Array(headers.length-1).fill(0);
  const subEntries=TIP_COLS.map(()=>[]);
  for(const service of services){
@@ -796,9 +817,9 @@ function reportTable(type,rs,subtotalNum){
    entries.forEach((en,i)=>subEntries[i].push(...en));
    const vals=entries.map(colValue);
    vals.forEach((v,i)=>totals[i]+=v);
-   h+=`<tr><td>${service}</td>${vals.map((v,i)=>`<td${tipAttr("r",`${TIP_COLS[i].label} — ${type} · ${service}`,entries[i])}>${v||""}</td>`).join("")}</tr>`;
+   h+=`<tr><td>${service}</td>${vals.map((v,i)=>`<td${i===1?' class="total-col"':""}${tipAttr("r",`${TIP_COLS[i].label} — ${type} · ${service}`,entries[i])}>${v||""}</td>`).join("")}</tr>`;
  }
- h+=`<tr class="subtotal"><td>SUBTOTAL ${subtotalNum}</td>${totals.map((v,i)=>`<td${tipAttr("r",`${TIP_COLS[i].label} — SUBTOTAL ${subtotalNum} (${type})`,subEntries[i])}>${v||""}</td>`).join("")}</tr></tbody></table>`;
+ h+=`<tr class="subtotal"><td>SUBTOTAL ${subtotalNum}</td>${totals.map((v,i)=>`<td${i===1?' class="total-col"':""}${tipAttr("r",`${TIP_COLS[i].label} — SUBTOTAL ${subtotalNum} (${type})`,subEntries[i])}>${v||""}</td>`).join("")}</tr></tbody></table>`;
  return {html:`<div class="report-table-wrap">${h}</div>`,totals,subEntries};
 }
 
@@ -850,7 +871,7 @@ function procedenciaTable(provRows,distRows){
  };
  const p=section("Provincia",provRows,1), d=section("Distrito",distRows,2);
  const grandTip=tipAttr("r","TOTAL GENERAL — Provincia + Distrito",[...tagged(provRows,"Provincia"),...tagged(distRows,"Distrito")]);
- return`<h4>PROCEDENCIA</h4>${p.html}${d.html}<h4>TOTAL GENERAL (Subtotal 1 + Subtotal 2)</h4><div class="report-table-wrap"><table class="report-table proc-table"><thead><tr><th>Procedencia</th><th>Cantidad</th></tr></thead><tbody><tr class="grand"><td${grandTip}>TOTAL GENERAL</td><td${grandTip}>${(p.tot+d.tot)||""}</td></tr></tbody></table></div>`;
+ return`<h4 class="report-subtitle">PROCEDENCIA</h4>${p.html}${d.html}<h4>TOTAL GENERAL (Subtotal 1 + Subtotal 2)</h4><div class="report-table-wrap"><table class="report-table proc-table"><thead><tr><th>Procedencia</th><th>Cantidad</th></tr></thead><tbody><tr class="grand"><td${grandTip}>TOTAL GENERAL</td><td${grandTip}>${(p.tot+d.tot)||""}</td></tr></tbody></table></div>`;
 }
 
 function renderReport(){
@@ -883,14 +904,14 @@ function renderReport(){
  <h4>${types[0].toUpperCase()}</h4>${a.html}
  <h4>${types[1].toUpperCase()}</h4>${b.html}
  <h4>TOTAL GENERAL (Subtotal 1 + Subtotal 2)</h4>
- <div class="report-table-wrap"><table class="report-table"><thead><tr>${headers.map(x=>`<th>${x}</th>`).join("")}</tr></thead><tbody><tr class="grand"><td>TOTAL GENERAL</td>${grand.map((v,i)=>`<td${tipAttr("r",`${TIP_COLS[i].label} — TOTAL GENERAL`,grandEntries[i])}>${v||""}</td>`).join("")}</tr></tbody></table></div>
+ <div class="report-table-wrap"><table class="report-table"><thead><tr>${headers.map(x=>`<th${x==="Total"?' class="total-col"':""}>${x}</th>`).join("")}</tr></thead><tbody><tr class="grand"><td>TOTAL GENERAL</td>${grand.map((v,i)=>`<td${i===1?' class="total-col"':""}${tipAttr("r",`${TIP_COLS[i].label} — TOTAL GENERAL`,grandEntries[i])}>${v||""}</td>`).join("")}</tr></tbody></table></div>
  <div class="report-page2">
-   <h4>POBLACIÓN ATENDIDA POR EDAD</h4>
+   <h4 class="report-subtitle">POBLACIÓN ATENDIDA POR EDAD</h4>
    <div class="age-grid">${ageRows.map(([l,c,en])=>`<div class="age-cell"${tipAttr("r",`Edad: ${l}`,en)}><span>${l}</span><b>${c||""}</b></div>`).join("")}</div>
    ${otrosLine}
    <div class="age-total"${tipAttr("r","Pacientes con edad registrada",ageAllEntries)}><strong>Total de pacientes por edad:</strong> ${ageTotal}</div>
    <div class="report-diag-block">
-     <h4>POR DIAGNÓSTICO</h4>${miniTable(diagRows,"Diagnóstico")}
+     <h4 class="report-subtitle">POR DIAGNÓSTICO</h4>${miniTable(diagRows,"Diagnóstico")}
    </div>
    <div class="report-procedencia">${procedenciaTable(provinceRows,districtRows)}</div>
  </div>

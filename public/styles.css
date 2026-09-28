@@ -272,3 +272,26 @@ td[data-tip]:hover,tr[data-tip]:hover td,.age-cell[data-tip]:hover,.age-otros[da
 .report-table.proc-table td:first-child,.report-table.proc-table th:first-child{text-align:left}
 .report-table.proc-table tr{break-inside:avoid;page-break-inside:avoid}
 .report-procedencia h4{margin-top:16px}
+
+/* ---------- Mi cuenta: interruptor de detalle de registros ---------- */
+.account-setting{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-top:14px;padding-top:14px;border-top:1px solid #e2e8f0}
+.account-setting strong{font-size:13.5px}
+.account-setting p.muted{margin:2px 0 0;font-size:12px}
+.switch{position:relative;display:inline-block;flex:none;cursor:pointer}
+.switch input{position:absolute;opacity:0;width:0;height:0}
+.switch-track{display:block;width:42px;height:24px;background:#cbd5e1;border-radius:999px;transition:background .15s}
+.switch-thumb{position:absolute;top:3px;left:3px;width:18px;height:18px;background:#fff;border-radius:50%;box-shadow:0 1px 2px rgba(0,0,0,.3);transition:left .15s}
+.switch input:checked + .switch-track{background:#2563eb}
+.switch input:checked + .switch-track .switch-thumb{left:21px}
+
+.tips-off [data-tip]{cursor:default}
+.tips-off td[data-tip]:hover,.tips-off tr[data-tip]:hover td,.tips-off .age-cell[data-tip]:hover,.tips-off .age-otros[data-tip]:hover,.tips-off .age-total[data-tip]:hover,.tips-off .card[data-tip]:hover{background:inherit;border-color:inherit;box-shadow:none}
+
+/* ---------- Columna "Total": sombreado suave para seguirla con la mirada ---------- */
+th.total-col,td.total-col{background:#eef2ff}
+.report-table tr.subtotal td.total-col{background:#dbe3ff}
+.report-table tr.grand td.total-col{background:#c7d2fe}
+tr:hover td.total-col{background:#e0e7ff}
+
+/* ---------- Subtítulos del informe con subrayado largo ---------- */
+.report-subtitle{font-size:15px;font-weight:800;letter-spacing:.3px;color:#1e293b;margin:22px 0 12px;padding-bottom:7px;border-bottom:3px solid #2563eb}
