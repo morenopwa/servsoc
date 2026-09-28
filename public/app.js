@@ -836,22 +836,21 @@ function miniTable(rows,label){
  return`<table class="mini-table"><thead><tr><th>${label}</th><th>Cantidad</th></tr></thead><tbody>${rows.map(x=>`<tr${tipAttr("r",`${label}: ${x.label}`,plainEntries(x.recs))}><td>${escapeHtml(x.label)}</td><td>${x.count}</td></tr>`).join("")}</tbody><tfoot><tr class="mini-table-total"${tipAttr("r",`${label}: todos`,plainEntries(allRecs))}><td>Total</td><td>${total}</td></tr></tfoot></table>`;
 }
 
-// Tabla única "PROCEDENCIA": Provincia y Distrito lado a lado, con TOTAL GENERAL de cada una
+// PROCEDENCIA: mismo estilo que las demás tablas del informe (Provincia -> Subtotal 1, Distrito -> Subtotal 2, Total general)
 function procedenciaTable(provRows,distRows){
- if(!provRows.length&&!distRows.length)return`<p class="muted">Sin datos registrados este mes.</p>`;
- const n=Math.max(provRows.length,distRows.length);
- const half=(x,label)=>x
-   ?`<td class="proc-name"${tipAttr("r",`${label}: ${x.label}`,plainEntries(x.recs))}>${escapeHtml(x.label)}</td><td${tipAttr("r",`${label}: ${x.label}`,plainEntries(x.recs))}>${x.count}</td>`
-   :`<td class="proc-name"></td><td></td>`;
- let body="";
- for(let i=0;i<n;i++)body+=`<tr>${half(provRows[i],"Provincia")}${half(distRows[i],"Distrito")}</tr>`;
- const totP=provRows.reduce((a,x)=>a+x.count,0), totD=distRows.reduce((a,x)=>a+x.count,0);
- const tipP=tipAttr("r","Provincia: TOTAL GENERAL",plainEntries(provRows.flatMap(x=>x.recs)));
- const tipD=tipAttr("r","Distrito: TOTAL GENERAL",plainEntries(distRows.flatMap(x=>x.recs)));
- return`<table class="mini-table procedencia-table"><thead>
-   <tr><th colspan="4" class="proc-title">PROCEDENCIA</th></tr>
-   <tr><th>Provincia</th><th>Cantidad</th><th>Distrito</th><th>Cantidad</th></tr>
- </thead><tbody>${body}</tbody><tfoot><tr class="mini-table-total"><td class="proc-name"${tipP}>TOTAL GENERAL</td><td${tipP}>${totP}</td><td class="proc-name"${tipD}>TOTAL GENERAL</td><td${tipD}>${totD}</td></tr></tfoot></table>`;
+ const tagged=(rows,tag)=>rows.flatMap(x=>x.recs.map(r=>({r,n:1,detail:tag})));
+ const section=(label,rows,num)=>{
+   const tot=rows.reduce((a,x)=>a+x.count,0);
+   const body=rows.length
+     ?rows.map(x=>`<tr><td${tipAttr("r",`${label}: ${x.label}`,plainEntries(x.recs))}>${escapeHtml(x.label)}</td><td${tipAttr("r",`${label}: ${x.label}`,plainEntries(x.recs))}>${x.count}</td></tr>`).join("")
+     :`<tr><td colspan="2" class="empty">Sin datos registrados este mes.</td></tr>`;
+   const tip=tipAttr("r",`SUBTOTAL ${num} — ${label}`,plainEntries(rows.flatMap(x=>x.recs)));
+   const html=`<h4>${label.toUpperCase()}</h4><div class="report-table-wrap"><table class="report-table proc-table"><thead><tr><th>${label}</th><th>Cantidad</th></tr></thead><tbody>${body}<tr class="subtotal"><td${tip}>SUBTOTAL ${num}</td><td${tip}>${tot||""}</td></tr></tbody></table></div>`;
+   return{html,tot};
+ };
+ const p=section("Provincia",provRows,1), d=section("Distrito",distRows,2);
+ const grandTip=tipAttr("r","TOTAL GENERAL — Provincia + Distrito",[...tagged(provRows,"Provincia"),...tagged(distRows,"Distrito")]);
+ return`<h4>PROCEDENCIA</h4>${p.html}${d.html}<h4>TOTAL GENERAL (Subtotal 1 + Subtotal 2)</h4><div class="report-table-wrap"><table class="report-table proc-table"><thead><tr><th>Procedencia</th><th>Cantidad</th></tr></thead><tbody><tr class="grand"><td${grandTip}>TOTAL GENERAL</td><td${grandTip}>${(p.tot+d.tot)||""}</td></tr></tbody></table></div>`;
 }
 
 function renderReport(){
