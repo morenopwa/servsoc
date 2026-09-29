@@ -894,7 +894,34 @@ function renderReport(){
  const ageAllEntries=[...ageRows.flatMap(([,,en])=>en),...otrosEntries];
  const diagRows=groupCount(rs,"diagnosis");
  const provinceRows=groupCount(rs,"province").filter(x=>!["callao","lima"].includes(x.label.trim().toLowerCase()));
- const districtRows=groupCount(rs,"district");
+ // Distrito solo aplica a los pacientes de Lima/Callao (los de otras provincias ya se cuentan en Provincia arriba).
+ // Así Provincia + Distrito se reparten a TODOS los pacientes sin contar a nadie dos veces.
+ const districtRows=groupCount(rs.filter(r=>["lima","callao"].includes((r.province||"").trim().toLowerCase())),"district");
+ const diagTotal=diagRows.reduce((a,x)=>a+x.count,0);
+ const provinceTotal=provinceRows.reduce((a,x)=>a+x.count,0);
+ const districtTotal=districtRows.reduce((a,x)=>a+x.count,0);
+ const missingAge=rs.filter(r=>!ageInfo(r));
+ const missingDiag=rs.filter(r=>!(r.diagnosis||"").trim());
+ // Falta Procedencia si: no tiene provincia; o es de Lima/Callao y no tiene distrito.
+ const missingProcedencia=rs.filter(r=>{
+   const prov=(r.province||"").trim();
+   if(!prov)return true;
+   const isLimaCallao=["lima","callao"].includes(prov.toLowerCase());
+   return isLimaCallao&&!(r.district||"").trim();
+ });
+ const procedenciaTotal=provinceTotal+districtTotal;
+ const checkRow=(label,total,missing)=>{
+   const ok=missing.length===0;
+   const tip=ok?"":tipAttr("r",`${label}: faltan estos ${missing.length} registro(s)`,plainEntries(missing));
+   return`<div class="check-row ${ok?"check-ok":"check-warn"}"${tip}><span class="check-badge">${ok?"✓":"⚠"}</span><span>${label}</span><b>${total} de ${rs.length}</b>${ok?"":`<em>faltan ${missing.length}</em>`}</div>`;
+ };
+ const checkBox=rs.length?`<div class="report-check">
+   <div class="report-check-title">Verificación de datos (para que Edad, Diagnóstico y Procedencia coincidan)</div>
+   ${checkRow("Con edad registrada",ageTotal,missingAge)}
+   ${checkRow("Con diagnóstico registrado",diagTotal,missingDiag)}
+   ${checkRow("Con procedencia registrada (Provincia + Distrito)",procedenciaTotal,missingProcedencia)}
+   <div class="check-note">Procedencia = Provincia (todos, excepto Lima/Callao) + Distrito (solo Lima/Callao). Entre las dos deben sumar el total de pacientes, sin repetir a nadie.</div>
+ </div>`:"";
  const otrosLine=otrosCount
    ?`<div class="age-otros"${tipAttr("r",`Otros (mayores de ${MAX_AGE} años)`,otrosEntries)}><strong>Otros (mayores de ${MAX_AGE} años):</strong> ${otrosCount} paciente(s) — edades: ${otrosAges.join(", ")} años</div>`
    :`<div class="age-otros"><strong>Otros (mayores de ${MAX_AGE} años):</strong> 0 pacientes</div>`;
@@ -906,6 +933,7 @@ function renderReport(){
  <h4>TOTAL GENERAL (Subtotal 1 + Subtotal 2)</h4>
  <div class="report-table-wrap"><table class="report-table"><thead><tr>${headers.map(x=>`<th${x==="Total"?' class="total-col"':""}>${x}</th>`).join("")}</tr></thead><tbody><tr class="grand"><td>TOTAL GENERAL</td>${grand.map((v,i)=>`<td${i===1?' class="total-col"':""}${tipAttr("r",`${TIP_COLS[i].label} — TOTAL GENERAL`,grandEntries[i])}>${v||""}</td>`).join("")}</tr></tbody></table></div>
  <div class="report-page2">
+   ${checkBox}
    <h4 class="report-subtitle">POBLACIÓN ATENDIDA POR EDAD</h4>
    <div class="age-grid">${ageRows.map(([l,c,en])=>`<div class="age-cell"${tipAttr("r",`Edad: ${l}`,en)}><span>${l}</span><b>${c||""}</b></div>`).join("")}</div>
    ${otrosLine}
